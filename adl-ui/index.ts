@@ -15,14 +15,7 @@ export {
     SelectState,
     useSelectState
 } from "./lib/select";
-export {
-    createVEditor,
-    Factory,
-    FieldEditorProps,
-    StructEditorProps,
-    UnimplementedEditorProps,
-    UnionEditorProps
-} from './lib/veditor/adlfactory';
+export * from './lib/veditor/adlfactory';
 export * from './lib/veditor/type';
 
 

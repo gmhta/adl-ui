@@ -1,3 +1,20 @@
+import { UAcceptors } from "./adlfactory";
+
+// export interface IVEditorState<T, S, E> {
+//   // Construct the state for an editor with current value T
+//   stateFromValue(value: T): S;
+//   // Check whether the current state can produce a T. Return
+//   // a list of errors.
+//   validate(state: S): string[];
+//   // If valid, construct a value of type T representing the current
+//   // value
+//   valueFromState(state: S): T;
+//   // Returns a copy of the state, updated to reflect the given event
+//   update(state: S, event: E): S;
+// }
+
+// type U = unknown;
+
 // An abstract value editor
 //
 //    T: the type of value being edited
@@ -21,6 +38,8 @@ export interface IVEditor<T, S, E> {
 
   // Returns a copy of the state, updated to reflect the given event
   update(state: S, event: E): S;
+
+  visit(stackState: unknown, state: S, acceptor: UAcceptors): unknown;
 
   // Render the editor's current state as a UI.
   render(state: S, disabled: boolean, onUpdate: UpdateFn<E>): Rendered;
