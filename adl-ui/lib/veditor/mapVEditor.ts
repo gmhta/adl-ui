@@ -2,7 +2,7 @@ import * as adlrt from "../../adl-gen/runtime/adl";
 import * as systypes from "../../adl-gen/sys/types";
 import * as adltree from "../adl-tree";
 import { IVEditor } from "./type";
-import { InternalContext, Factory, createVEditor0, UAcceptors } from "./adlfactory";
+import { InternalContext, Factory, createVEditor0, Acceptors } from "./adlfactory";
 
 // Create an editor over a Vector<Pair<K,V>>. This won't be required after
 // we update sys.types.Map to have that type
@@ -31,21 +31,22 @@ export function mapEntryVectorVEditor<K, V>(declResolver: adlrt.DeclResolver, ct
 
 /// Map a value editor from type A to a corresponding value
 /// editor over type B.
-export function mappedVEditor<A,B,S,E>(
-  veditor: IVEditor<A,S,E>,
-  aFromB: (b:B) => A,
-  bFromA: (a:A) => B
-  ) : IVEditor<B,S,E> {
+export function mappedVEditor<A, B, S, E>(
+  veditor: IVEditor<A, S, E>,
+  aFromB: (b: B) => A,
+  bFromA: (a: A) => B
+): IVEditor<B, S, E> {
 
-  function visit(stackState: unknown, state: S, acceptor: UAcceptors): unknown {
+  function visit<I, O>(stackState: I, state: S, acceptor: Acceptors<I, O>): O {
     return veditor.visit(stackState, state, acceptor);
   }
 
+
   return {
     initialState: veditor.initialState,
-    stateFromValue: (b:B) => veditor.stateFromValue(aFromB(b)),
+    stateFromValue: (b: B) => veditor.stateFromValue(aFromB(b)),
     validate: veditor.validate,
-    valueFromState: (s:S) => bFromA(veditor.valueFromState(s)),
+    valueFromState: (s: S) => bFromA(veditor.valueFromState(s)),
     update: veditor.update,
     visit,
     render: veditor.render,

@@ -1,9 +1,9 @@
 import { IVEditor } from "./type";
-import { UAcceptors, Factory } from "./adlfactory";
+import { Acceptors, Factory } from "./adlfactory";
 
 export function voidVEditor(factory: Factory): IVEditor<null, null, null> {
 
-  function visit(stackState: unknown, _state: unknown, acceptor: UAcceptors): unknown {
+  function visit<I,O>(stackState: I, _state: unknown, acceptor: Acceptors<I,O>): O {
     return acceptor.acceptVoid(stackState, {});
   }
 

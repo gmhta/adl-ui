@@ -2,7 +2,7 @@ import * as adlrt from "../../adl-gen/runtime/adl";
 import * as adltree from "../adl-tree";
 import { IVEditor, UVEditor, UpdateFn, Rendered } from "./type";
 import { SelectState } from "../select";
-import { Factory, SomeUnion, UnionState, UnionEvent, fieldLabel, createVEditor0, VEditorProps, UAcceptors } from "./adlfactory";
+import { Factory, SomeUnion, UnionState, UnionEvent, fieldLabel, createVEditor0, VEditorProps, Acceptors } from "./adlfactory";
 
 export function unionVEditor(
   factory: Factory,
@@ -65,7 +65,7 @@ export function unionVEditor(
     return { kind, value };
   }
 
-  function visit(stackState: unknown, state: UnionState, acceptor: UAcceptors): unknown {
+  function visit<I,O>(stackState: I, state: UnionState, acceptor: Acceptors<I,O>): O {
     if (!state) {
       return acceptor.acceptUnion(
         stackState,

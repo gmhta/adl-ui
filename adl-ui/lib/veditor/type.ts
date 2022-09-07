@@ -1,4 +1,4 @@
-import { UAcceptors } from "./adlfactory";
+import { Acceptors, UAcceptors } from "./adlfactory";
 
 // export interface IVEditorState<T, S, E> {
 //   // Construct the state for an editor with current value T
@@ -21,6 +21,10 @@ import { UAcceptors } from "./adlfactory";
 //    S: the type of state required for editing
 //    E: the type of events
 
+export interface Visitor<I, O, S> {
+  visit(stackState: I, state: S, acceptor: Acceptors<I, O>): O;
+}
+
 export interface IVEditor<T, S, E> {
   // The state for an empty editor
   initialState: S;
@@ -39,7 +43,7 @@ export interface IVEditor<T, S, E> {
   // Returns a copy of the state, updated to reflect the given event
   update(state: S, event: E): S;
 
-  visit(stackState: unknown, state: S, acceptor: UAcceptors): unknown;
+  visit<I,O>(stackState: I, state: S, acceptor: Acceptors<I, O>): O;
 
   // Render the editor's current state as a UI.
   render(state: S, disabled: boolean, onUpdate: UpdateFn<E>): Rendered;

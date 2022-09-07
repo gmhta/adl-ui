@@ -2,7 +2,7 @@ import * as adlrt from "../../adl-gen/runtime/adl";
 import * as adltree from "../adl-tree";
 import { createJsonBinding } from '../../adl-gen/runtime/json';
 import { IVEditor, UVEditor, UpdateFn, Rendered } from "./type";
-import { Factory, StructState, StructEvent, createVEditor0, nullContext, fieldLabel, StructFieldProps, UAcceptors } from "./adlfactory";
+import { Factory, StructState, StructEvent, createVEditor0, nullContext, fieldLabel, StructFieldProps, Acceptors } from "./adlfactory";
 
 export function structVEditor(
   factory: Factory,
@@ -69,7 +69,7 @@ export function structVEditor(
     return value;
   }
 
-  function visit(stackState: unknown, state: StructState, acceptor: UAcceptors): unknown {
+  function visit<I,O>(stackState: I, state: StructState, acceptor: Acceptors<I,O>): O {
     return acceptor.acceptStruct(stackState, {
       fields: fieldDetails.map(fd => ({
         name: fd.name,
