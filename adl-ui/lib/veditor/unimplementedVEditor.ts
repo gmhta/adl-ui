@@ -1,15 +1,16 @@
 import * as adlast from "../../adl-gen/sys/adlast";
-import { UVEditor } from "./type";
-import { Acceptors, Factory } from "./adlfactory";
+import { UVEditor, AcceptorsIO } from "./type";
+import { Factory } from "./adlfactory";
 
 export function unimplementedVEditor(factory: Factory, typeExpr: adlast.TypeExpr): UVEditor {
 
-  function visit<I,O>(stackState: I, _state: unknown, acceptor: Acceptors<I,O>): O {
-    return acceptor.acceptUnimplemented(stackState, { typeExpr });
+  function visit<I,O>(env: I, acceptor: AcceptorsIO<I,O>): O {
+    return acceptor.acceptUnimplemented(env, { typeExpr });
   }
 
   return {
     initialState: null,
+    getInitialState: () => null,
     stateFromValue: () => null,
     validate: () => [],
     valueFromState: () => null,

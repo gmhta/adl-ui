@@ -1,14 +1,15 @@
-import { IVEditor } from "./type";
-import { Acceptors, Factory } from "./adlfactory";
+import { AcceptorsIO, IVEditor } from "./type";
+import { Factory } from "./adlfactory";
 
 export function voidVEditor(factory: Factory): IVEditor<null, null, null> {
 
-  function visit<I,O>(stackState: I, _state: unknown, acceptor: Acceptors<I,O>): O {
-    return acceptor.acceptVoid(stackState, {});
+  function visit<I, O>(env: I, acceptor: AcceptorsIO<I, O>): O {
+    return acceptor.acceptVoid(env);
   }
 
   return {
     initialState: null,
+    getInitialState: () => null,
     stateFromValue: () => null,
     validate: () => [],
     valueFromState: () => null,

@@ -1,8 +1,8 @@
 import * as adlrt from "../../adl-gen/runtime/adl";
 import * as systypes from "../../adl-gen/sys/types";
 import * as adltree from "../adl-tree";
-import { IVEditor } from "./type";
-import { InternalContext, Factory, createVEditor0, Acceptors } from "./adlfactory";
+import { IVEditor, AcceptorsIO } from "./type";
+import { InternalContext, Factory, createVEditor0 } from "./adlfactory";
 
 // Create an editor over a Vector<Pair<K,V>>. This won't be required after
 // we update sys.types.Map to have that type
@@ -37,13 +37,14 @@ export function mappedVEditor<A, B, S, E>(
   bFromA: (a: A) => B
 ): IVEditor<B, S, E> {
 
-  function visit<I, O>(stackState: I, state: S, acceptor: Acceptors<I, O>): O {
-    return veditor.visit(stackState, state, acceptor);
+  function visit<I, O>(env: I, acceptor: AcceptorsIO<I, O>): O {
+    return veditor.visit(env, acceptor);
   }
 
 
   return {
     initialState: veditor.initialState,
+    getInitialState: () => veditor.initialState,
     stateFromValue: (b: B) => veditor.stateFromValue(aFromB(b)),
     validate: veditor.validate,
     valueFromState: (s: S) => bFromA(veditor.valueFromState(s)),

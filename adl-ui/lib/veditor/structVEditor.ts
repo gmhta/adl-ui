@@ -1,19 +1,50 @@
 import * as adlrt from "../../adl-gen/runtime/adl";
+import { createJsonBinding, JsonBinding } from '../../adl-gen/runtime/json';
+import { Maybe } from "../../adl-gen/sys/types";
 import * as adltree from "../adl-tree";
-import { createJsonBinding } from '../../adl-gen/runtime/json';
-import { IVEditor, UVEditor, UpdateFn, Rendered } from "./type";
-import { Factory, StructState, StructEvent, createVEditor0, nullContext, fieldLabel, StructFieldProps, Acceptors } from "./adlfactory";
+import { IVEditor, UVEditor, UpdateFn, Rendered, AcceptorsIO } from "./type";
+import { Factory, createVEditor0, nullContext, fieldLabel, StructFieldProps } from "./adlfactory";
+import { getInitialState, render, stateFromValue, update, validate, valueFromState } from "./state-value-transforms";
+
+
+interface StructFieldStates {
+  [key: string]: unknown;
+}
+
+export interface StructState {
+  fieldStates: StructFieldStates;
+}
+
+interface StructFieldEvent {
+  kind: "field";
+  field: string;
+  fieldEvent: unknown;
+}
+
+export type StructEvent = StructFieldEvent;
+
+export type StructDescriptor = FieldDetails[];
+
+export type FieldDetails = {
+  name: string;
+  index: number;
+  default: Maybe<{} | null>;
+  jsonBinding: JsonBinding<unknown>;
+  label: string;
+  veditor: IVEditor<unknown, unknown, unknown>;
+};
 
 export function structVEditor(
   factory: Factory,
   declResolver: adlrt.DeclResolver,
   struct: adltree.Struct): IVEditor<unknown, StructState, StructEvent> {
-  const fieldDetails = struct.fields.map(field => {
+  const structDesc: FieldDetails[] = struct.fields.map((field, index) => {
     const veditor = createVEditor0(declResolver, nullContext, field.adlTree, factory);
     const jsonBinding = createJsonBinding<unknown>(declResolver, { value: field.adlTree.typeExpr });
 
     return {
       name: field.astField.name,
+      index,
       default: field.astField.default,
       jsonBinding,
       label: fieldLabel(field.astField.name),
@@ -32,7 +63,7 @@ export function structVEditor(
   // this as a parameter.
   const USE_DEFAULTS_FOR_STRUCT_FIELDS = true;
 
-  for (const fd of fieldDetails) {
+  for (const fd of structDesc) {
     veditorsByName[fd.name] = fd.veditor;
     if (USE_DEFAULTS_FOR_STRUCT_FIELDS && fd.default.kind === "just") {
       initialState.fieldStates[fd.name] = fd.veditor.stateFromValue(
@@ -43,87 +74,34 @@ export function structVEditor(
     }
   }
 
-  function stateFromValue(value: Record<string, unknown>) {
-    const state: StructState = {
-      fieldStates: {},
-    };
-    for (const fd of fieldDetails) {
-      state.fieldStates[fd.name] = fd.veditor.stateFromValue(value[fd.name]);
-    }
-    return state;
+  function visit<I, O>(env: I, acceptor: AcceptorsIO<I, O>): O {
+    return acceptor.acceptStruct(env, structDesc);
   }
 
-  function validate(state: StructState) {
-    let errors: string[] = [];
-    for (const fd of fieldDetails) {
-      errors = errors.concat(fd.veditor.validate(state.fieldStates[fd.name]).map(err => fd.name + ": " + err));
-    }
-    return errors;
-  }
-
-  function valueFromState(state: StructState) {
-    const value: Record<string, unknown> = {};
-    for (const fd of fieldDetails) {
-      value[fd.name] = fd.veditor.valueFromState(state.fieldStates[fd.name]);
-    }
-    return value;
-  }
-
-  function visit<I,O>(stackState: I, state: StructState, acceptor: Acceptors<I,O>): O {
-    return acceptor.acceptStruct(stackState, {
-      fields: fieldDetails.map(fd => ({
-        name: fd.name,
-        label: fd.label,
-        veditor: fd.veditor,
-        state: state.fieldStates[fd.name],
-      }))
-    });
-  }
-
-  function update(state: StructState, event: StructEvent): StructState {
-    if (event.kind === "field") {
-      const newFieldStates = {
-        ...state.fieldStates
-      };
-      const newfs = veditorsByName[event.field].update(
-        state.fieldStates[event.field],
-        event.fieldEvent
-      );
-      newFieldStates[event.field] = newfs;
-      const newState = {
-        fieldStates: newFieldStates,
-      };
-      return newState;
-    } else {
-      return state;
-    }
-  }
-
-  function render(
-    state: StructState,
-    disabled: boolean,
-    onUpdate: UpdateFn<StructEvent>
-  ): Rendered {
-    const fields: StructFieldProps[] = fieldDetails.map(fd => ({
-      ...fd,
-      veditor: {
-        veditor: fd.veditor,
-        state: state.fieldStates[fd.name],
-        onUpdate: event => {
-          onUpdate({ kind: "field", field: fd.name, fieldEvent: event });
-        }
-      }
-    }));
-    return factory.renderStructEditor({ fields, disabled });
-  }
+  const thisVEditor = {
+    initialState,
+    visit,
+  };
 
   return {
-    initialState,
-    stateFromValue,
-    validate,
-    valueFromState,
-    update,
-    visit,
-    render
+    ...thisVEditor,
+    getInitialState: () => {
+      return getInitialState(thisVEditor);
+    },
+    validate: (state: StructState) => {
+      return validate(thisVEditor, state);
+    },
+    valueFromState: (state: StructState) => {
+      return valueFromState(thisVEditor, state);
+    },
+    stateFromValue: (value: Record<string, unknown>) => {
+      return stateFromValue(thisVEditor, value);
+    },
+    update: (state: StructState, event: StructEvent): StructState => {
+      return update(thisVEditor, state, event);
+    },
+    render: (state: StructState, disabled: boolean, onUpdate: UpdateFn<StructEvent>): Rendered => {
+      return render(thisVEditor, factory, state, disabled, onUpdate);
+    }
   };
 }

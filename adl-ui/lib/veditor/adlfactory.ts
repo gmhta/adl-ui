@@ -14,8 +14,8 @@ import { createField } from "./createField";
 import { voidVEditor } from "./voidVEditor";
 import { unimplementedVEditor } from "./unimplementedVEditor";
 import { mapVEditor, mappedVEditor, mapEntryVectorVEditor } from "./mapVEditor";
-import { unionVEditor } from "./unionVEditor";
-import { structVEditor } from "./structVEditor";
+import { UnionDescriptor, UnionState, unionVEditor } from "./unionVEditor";
+import { StructDescriptor, structVEditor } from "./structVEditor";
 import { fieldVEditor } from "./fieldVEditor";
 
 /**
@@ -55,50 +55,6 @@ export interface Factory {
   renderUnimplementedEditor(props: UnimplementedEditorProps): Rendered;
 }
 
-export interface Acceptors<I, O> {
-  acceptField(stackState: I, props: AcceptFieldProps): O;
-  acceptStruct(stackState: I, props: AcceptStructProps): O;
-  acceptUnion(stackState: I, props: AcceptUnionProps): O;
-  acceptVoid(stackState: I, props: AcceptVoidProps): O;
-  acceptMaybe(stackState: I, props: AcceptMaybeProps): O;
-  acceptVector(stackState: I, props: AcceptVectorProps): O;
-  acceptUnimplemented(stackState: I, props: AcceptUnimplementedProps): O;
-}
-
-export type UAcceptors = Acceptors<unknown, unknown>;
-
-export interface AcceptFieldProps {
-  // name: string;
-  fieldfns: FieldFns<unknown>;
-  state: string;
-}
-export interface AcceptStructProps {
-  // name: string;
-  // label: string;
-  fields: AcceptStructFieldProps[];
-}
-interface AcceptStructFieldProps {
-  name: string;
-  label: string;
-  veditor: UVEditor;
-  state: unknown;
-}
-export type AcceptUnionProps = AcceptUnionPropsSet | AcceptUnionPropsUnset;
-export interface AcceptUnionPropsUnset {
-  kind: "unset";
-}
-export interface AcceptUnionPropsSet {
-  kind: "set";
-  branch: string;
-  state: UnionState;
-  veditor: UVEditor | null;
-}
-export interface AcceptVoidProps { }
-export interface AcceptMaybeProps { }
-export interface AcceptVectorProps { }
-export interface AcceptUnimplementedProps {
-  typeExpr: adlast.TypeExpr;
-}
 
 // interface AcceptVEditorProps<T, S, E> {
 //   veditor: IVEditor<T, S, E>;
@@ -258,22 +214,6 @@ export function createVEditor0(
   }
 }
 
-interface StructFieldStates {
-  [key: string]: unknown;
-}
-
-export interface StructState {
-  fieldStates: StructFieldStates;
-}
-
-interface StructFieldEvent {
-  kind: "field";
-  field: string;
-  fieldEvent: unknown;
-}
-
-export type StructEvent = StructFieldEvent;
-
 export type VField = {
   field: adltree.Field;
   veditor: UVEditor;
@@ -296,29 +236,7 @@ export function fieldLabel(name: string): string {
 }
 
 
-export interface UnionState {
-  currentField: string | null;
-  selectActive: boolean,
-  fieldStates: { [key: string]: unknown; };
-}
 
-interface UnionToggleActive {
-  kind: "toggleActive",
-} // Show the dropdown
-interface UnionSetField {
-  kind: "switch";
-  field: string | null;
-} // Switch the discriminator
-interface UnionUpdate {
-  kind: "update";
-  event: unknown;
-} // Update the value
-export type UnionEvent = UnionToggleActive | UnionSetField | UnionUpdate;
-
-export interface SomeUnion {
-  kind: string;
-  value: unknown;
-}
 
 function createFieldForTParam0(
   adlTree: adltree.AdlTree,

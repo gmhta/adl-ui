@@ -1,7 +1,7 @@
 import * as adlast from "../../adl-gen/sys/adlast";
-import { IVEditor, UVEditor } from "./type";
+import { AcceptorsIO, IVEditor, UVEditor } from "./type";
 import { FieldFns } from "../fields/type";
-import { Acceptors, Factory } from "./adlfactory";
+import { Factory } from "./adlfactory";
 
 export function fieldVEditor<T>(factory: Factory, _typeExpr: adlast.TypeExpr, fieldfns: FieldFns<T>): UVEditor {
   function validate(t: string): string[] {
@@ -9,12 +9,13 @@ export function fieldVEditor<T>(factory: Factory, _typeExpr: adlast.TypeExpr, fi
     return err === null ? [] : [err];
   }
 
-  function visit<I,O>(stackState: I, state: string, acceptor: Acceptors<I,O>): O {
-    return acceptor.acceptField(stackState, { fieldfns, state } );
+  function visit<I,O>(env: I, acceptor: AcceptorsIO<I,O>): O {
+    return acceptor.acceptField(env, fieldfns );
   }
 
   const veditor: IVEditor<T, string, string> = {
     initialState: "",
+    getInitialState: () => "",
     stateFromValue: fieldfns.toText,
     validate,
     valueFromState: fieldfns.fromText,
