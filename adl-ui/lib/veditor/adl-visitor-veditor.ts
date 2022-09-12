@@ -4,12 +4,26 @@ import {
   createVisitor
 } from "./adl-visitors";
 import {
-  Acceptors, AcceptorsIsO,
+  Acceptors,
+  AcceptorsIsO,
   AcceptorsOsIs,
+  AdlTypeMapper,
   FieldDescriptor,
-  StructDescriptor, UnionDescriptor, Visitor, VisitorU
+  Override,
+  StructDescriptor,
+  UnionDescriptor,
+  Visitor,
+  VisitorU
 } from "./type";
-import { AcceptUnimplementedProps, Factory, IVEditor, Rendered, StructFieldProps, UpdateFn, VEditorProps } from "./type";
+import {
+  AcceptUnimplementedProps,
+  Factory,
+  IVEditor,
+  Rendered,
+  StructFieldProps,
+  UpdateFn,
+  VEditorProps
+} from "./type";
 
 export type TandErrors<T> = {
   errors: string[];
@@ -20,8 +34,15 @@ export function createVEditor<T>(
   typeExpr: adlrt.ATypeExpr<T>,
   declResolver: adlrt.DeclResolver,
   factory: Factory,
+  overrides?: Override[],
+  adlMappers?: AdlTypeMapper<any, any>[],
 ) {
-  const visitor = createVisitor(typeExpr, declResolver);
+  const visitor = createVisitor(
+    typeExpr,
+    declResolver,
+    overrides ? overrides : [],
+    adlMappers ? adlMappers : [],
+  );
   return makeVEditor(visitor, factory);
 }
 
@@ -77,7 +98,7 @@ export interface SomeUnion {
 
 const stateFromValueAcceptor: Acceptors<
   unknown, string,
-  Record<string, unknown>, StructState,
+  Record<string, unknown> | unknown, StructState,
   SomeUnion | unknown, UnionState,
   unknown, unknown,
   unknown, unknown,
@@ -89,12 +110,18 @@ const stateFromValueAcceptor: Acceptors<
     }
     return fieldDesc.fieldfns.toText(value);
   },
-  acceptStruct: (value: Record<string, unknown>, structDesc: StructDescriptor): StructState => {
+  acceptStruct: (value0: Record<string, unknown> | unknown, structDesc: StructDescriptor): StructState => {
+    let value: Record<string, unknown> = {};
+    if (structDesc.mapper) {
+      value = structDesc.mapper.bFromA(value0) as Record<string, unknown>;
+    } else {
+      value = value0 as Record<string, unknown>;
+    }
     const state: StructState = {
       fieldStates: {},
     };
     for (const fd of structDesc.fieldDetails) {
-      state.fieldStates[fd.name] = fd.visitor.visit(value[fd.name], stateFromValueAcceptor);
+      state.fieldStates[fd.name] = fd.visitor.visit("stateFromValue", value[fd.name], stateFromValueAcceptor);
     }
     return state;
   },
@@ -116,7 +143,7 @@ const stateFromValueAcceptor: Acceptors<
     return {
       currentField: kind,
       selectActive: false,
-      fieldStates: { [kind]: unionDesc.branchDetails[kind].visitor().visit(value, stateFromValueAcceptor) }
+      fieldStates: { [kind]: unionDesc.branchDetails[kind].visitor().visit("stateFromValue", value, stateFromValueAcceptor) }
     };
   },
   acceptVoid: function (env: unknown): unknown {
@@ -154,11 +181,12 @@ const getInitialStateAcceptor: Acceptors<
     for (const fd of structDesc.fieldDetails) {
       if (USE_DEFAULTS_FOR_STRUCT_FIELDS && fd.default.kind === "just") {
         initialState.fieldStates[fd.name] = fd.visitor.visit(
+          "getInitialState",
           fd.jsonBinding.fromJsonE(fd.default.value),
           stateFromValueAcceptor,
         );
       } else {
-        initialState.fieldStates[fd.name] = fd.visitor.visit(undefined, getInitialStateAcceptor);
+        initialState.fieldStates[fd.name] = fd.visitor.visit("getInitialState", undefined, getInitialStateAcceptor);
       }
     }
     return initialState;
@@ -179,7 +207,7 @@ const getInitialStateAcceptor: Acceptors<
 };
 
 export function getInitialState<S>(veditor0: Visitor<void, unknown>): S {
-  return veditor0.visit(undefined, getInitialStateAcceptor) as S;
+  return veditor0.visit("getInitialState", undefined, getInitialStateAcceptor) as S;
 }
 
 export function validate<S>(veditor0: VisitorU, vstate: S): string[] {
@@ -200,7 +228,7 @@ export function validate<S>(veditor0: VisitorU, vstate: S): string[] {
     acceptStruct: function (state: StructState, structDesc: StructDescriptor): string[] {
       let errors: string[] = [];
       for (const fd of structDesc.fieldDetails) {
-        const result = fd.visitor.visit(state.fieldStates[fd.name], acceptor) as string[];
+        const result = fd.visitor.visit("validate", state.fieldStates[fd.name], acceptor) as string[];
 
         errors = errors.concat(result.map(err => fd.name + ": " + err));
       }
@@ -214,7 +242,7 @@ export function validate<S>(veditor0: VisitorU, vstate: S): string[] {
       if (!unionDesc.branchDetails[kind]) {
         throw new Error("union with invalid kind field");
       }
-      const result = unionDesc.branchDetails[kind].visitor().visit(state.fieldStates[kind], acceptor) as string[];
+      const result = unionDesc.branchDetails[kind].visitor().visit("validate", state.fieldStates[kind], acceptor) as string[];
       return result;
     },
     acceptVoid: function (env: undefined): string[] {
@@ -228,20 +256,20 @@ export function validate<S>(veditor0: VisitorU, vstate: S): string[] {
     }
   };
 
-  return veditor0.visit(vstate, acceptor) as string[];
+  return veditor0.visit("validate", vstate, acceptor) as string[];
 
 }
 
 
 export function stateFromValue<T, S>(veditor0: VisitorU, value0: T): S {
-  return veditor0.visit(value0, stateFromValueAcceptor) as S;
+  return veditor0.visit("stateFromValue", value0, stateFromValueAcceptor) as S;
 }
 
 export function valueFromState<T, S>(veditor: VisitorU, vstate: S): T {
 
   const acceptor: AcceptorsOsIs<
     unknown, string,
-    Record<string, unknown>, StructState,
+    Record<string, unknown> | unknown, StructState,
     SomeUnion | unknown, UnionState,
     unknown, unknown,
     unknown, unknown,
@@ -253,10 +281,13 @@ export function valueFromState<T, S>(veditor: VisitorU, vstate: S): T {
       }
       return fieldDesc.fieldfns.fromText(state);
     },
-    acceptStruct: (state: StructState, structDesc: StructDescriptor): Record<string, unknown> => {
+    acceptStruct: (state: StructState, structDesc: StructDescriptor): Record<string, unknown> | unknown => {
       const value: Record<string, unknown> = {};
       for (const fd of structDesc.fieldDetails) {
-        value[fd.name] = fd.visitor.visit(state.fieldStates[fd.name], acceptor);
+        value[fd.name] = fd.visitor.visit("valueFromState", state.fieldStates[fd.name], acceptor);
+      }
+      if (structDesc.mapper) {
+        return structDesc.mapper.aFromB(value);
       }
       return value;
     },
@@ -265,7 +296,7 @@ export function valueFromState<T, S>(veditor: VisitorU, vstate: S): T {
       if (kind === null) {
         throw new Error("BUG: union valueFromState called on invalid state");
       }
-      const value = unionDesc.branchDetails[kind].visitor().visit(state.fieldStates[kind], acceptor);
+      const value = unionDesc.branchDetails[kind].visitor().visit("valueFromState", state.fieldStates[kind], acceptor);
       if (unionDesc.mapper) {
         return unionDesc.mapper.aFromB({ kind, value });
       }
@@ -282,7 +313,7 @@ export function valueFromState<T, S>(veditor: VisitorU, vstate: S): T {
     }
   };
 
-  return veditor.visit(vstate, acceptor) as T;
+  return veditor.visit("valueFromState", vstate, acceptor) as T;
 }
 
 type SE<S, E> = { state: S, event: E; };
@@ -309,10 +340,14 @@ export function update<S, E>(veditor: VisitorU, state: S, event: E): S {
         if (!fd) {
           throw new Error("could find a named field " + event.field);
         }
-        const newfs = fd.visitor.visit({
-          state: state.fieldStates[event.field],
-          event: event.fieldEvent,
-        }, acceptor);
+        const newfs = fd.visitor.visit(
+          "update",
+          {
+            state: state.fieldStates[event.field],
+            event: event.fieldEvent,
+          },
+          acceptor
+        );
         newFieldStates[event.field] = newfs;
         const newState = {
           fieldStates: newFieldStates,
@@ -333,7 +368,7 @@ export function update<S, E>(veditor: VisitorU, state: S, event: E): S {
         const field = event.field;
         const newFieldStates = { ...state.fieldStates };
         if (field && !newFieldStates[field]) {
-          newFieldStates[field] = unionDesc.branchDetails[field].visitor().visit(undefined, getInitialStateAcceptor);
+          newFieldStates[field] = unionDesc.branchDetails[field].visitor().visit("update", undefined, getInitialStateAcceptor);
         }
         return {
           currentField: event.field,
@@ -346,10 +381,14 @@ export function update<S, E>(veditor: VisitorU, state: S, event: E): S {
           throw new Error("BUG: union update received when current field not set");
         }
         const newFieldStates = { ...state.fieldStates };
-        newFieldStates[field] = unionDesc.branchDetails[field].visitor().visit({
-          state: newFieldStates[field],
-          event: event.event,
-        }, acceptor);
+        newFieldStates[field] = unionDesc.branchDetails[field].visitor().visit(
+          "update",
+          {
+            state: newFieldStates[field],
+            event: event.event,
+          },
+          acceptor
+        );
         return {
           ...state,
           fieldStates: newFieldStates
@@ -368,7 +407,7 @@ export function update<S, E>(veditor: VisitorU, state: S, event: E): S {
       return {};
     }
   };
-  return veditor.visit({ state, event }, acceptor) as S;
+  return veditor.visit("update", { state, event }, acceptor) as S;
 }
 
 type RP<S, E> = { state: S, disabled: boolean, onUpdate: UpdateFn<E>; };
@@ -452,5 +491,5 @@ export function render<S, E>(veditor: VisitorU, factory: Factory, state0: S, dis
       return factory.renderUnimplementedEditor({ typeExpr: props.typeExpr });
     }
   };
-  return veditor.visit({ state: state0, disabled: disabled0, onUpdate: onUpdate0 }, acceptor) as Rendered;
+  return veditor.visit("render", { state: state0, disabled: disabled0, onUpdate: onUpdate0 }, acceptor) as Rendered;
 }

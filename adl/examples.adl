@@ -32,4 +32,16 @@ union FixedProps {
   Int32 age;
 };
 
+struct Full {
+  String id;
+  String firstname;
+  String surname;
+};
+
+struct Display {
+  String name;
+  Full model;
+};
+
+
 };

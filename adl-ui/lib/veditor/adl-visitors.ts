@@ -4,53 +4,72 @@ import * as adlast from "../../adl-gen/sys/adlast";
 import * as systypes from "../../adl-gen/sys/types";
 import { Maybe } from "../../adl-gen/sys/types";
 import * as adltree from "../adl-tree";
-import { scopedNamesEqual } from "../../adl-gen/runtime/utils";
+import { scopedNamesEqual, typeExprsEqual } from "../../adl-gen/runtime/utils";
 import { adlPrimitiveFieldFns, maybeField, nullableField } from "../fields/adl";
 import { FieldFns } from "../fields/type";
 import { fieldLabel } from "./fieldLabel";
 import { isMaybe, maybeFromNullable, nullableFromMaybe } from "./maybe-utils";
-import { AcceptorsIO, AcceptorsU, AcceptUnimplementedProps, FieldDetails, InternalContext, Mapper, UnionDescriptor, VisitorU } from "./type";
+import {
+  AcceptorsIO,
+  AcceptorsU,
+  AcceptUnimplementedProps,
+  AdlTypeMapper,
+  FieldDetails,
+  InternalContext,
+  Mapper,
+  Override,
+  UnionDescriptor,
+  VisitorU
+} from "./type";
 
 export const nullContext = { scopedDecl: null, field: null };
 
 export function createVisitor<T>(
   typeExpr: adlrt.ATypeExpr<T>,
   declResolver: adlrt.DeclResolver,
+  overrides: Override[],
+  adlMappers: AdlTypeMapper<unknown, unknown>[],
 ): VisitorU {
+  const mapper = adlMappers.find(m => typeExprsEqual(m.texprA.value, typeExpr.value));
+  if (mapper) {
+    const adlTree = adltree.createAdlTree(mapper.texprB.value, declResolver);
+    return createVisitor0(declResolver, nullContext, adlTree, overrides, mapper);
+  }
   const adlTree = adltree.createAdlTree(typeExpr.value, declResolver);
-  return createVisitor0(declResolver, nullContext, adlTree, undefined);
+  return createVisitor0(declResolver, nullContext, adlTree, overrides, undefined);
 }
 
 export function createVisitor0(
   declResolver: adlrt.DeclResolver,
   ctx: InternalContext,
   adlTree: adltree.AdlTree,
+  overrides: Override[],
   mapper?: Mapper<unknown, unknown>,
 ): VisitorU {
   const details = adlTree.details();
   switch (details.kind) {
     case "primitive": {
       if (details.ptype === "Void") {
-        return voidVisitor();
+        return voidVisitor(overrides);
       } else {
         const fldfns = createField(adlTree);//, customContext, factory);
         if (fldfns === null) {
-          return unimplementedVisitor(adlTree.typeExpr);
+          return unimplementedVisitor(adlTree.typeExpr, overrides);
         }
-        return fieldVisitor(fldfns, mapper/* factory, adlTree.typeExpr */);
+        return fieldVisitor(fldfns, overrides, mapper/* factory, adlTree.typeExpr */);
       }
     }
     case "struct": {
-      return structVisitor(declResolver, details)//, mapper);
+      return structVisitor(declResolver, details, overrides, mapper);
     }
     case "newtype": {
       // if (adlTree.typeExpr.typeRef.kind === 'reference' && scopedNamesEqual(systypes.snMap, adlTree.typeExpr.typeRef.value)) {
       //   return mapVEditor(declResolver, nullContext, factory, { value: adlTree.typeExpr.parameters[0] }, { value: adlTree.typeExpr.parameters[1] });
       // }
-      return createVisitor0(declResolver, nullContext, details.adlTree, mapper);
+      return createVisitor0(declResolver, nullContext, details.adlTree, overrides, mapper);
     }
     case "typedef": {
-      return createVisitor0(declResolver, nullContext, details.adlTree, mapper);
+      return createVisitor0(declResolver, nullContext, details.adlTree, overrides, mapper);
     }
     case "union": {
       // When T can be edited in a String field, we can use a string
@@ -60,16 +79,16 @@ export function createVisitor0(
       if (isMaybe(adlTree.typeExpr)) {
         const fldfns = createFieldForTParam0(adlTree, declResolver);
         if (fldfns && fldfns.validate("") !== null) {
-          return fieldVisitor(maybeField(fldfns), mapper /** adlTree.typeExpr */);
+          return fieldVisitor(maybeField(fldfns), overrides, mapper /** adlTree.typeExpr */);
         }
       }
-      return unionVisitor(declResolver, adlTree, details, mapper);
+      return unionVisitor(declResolver, adlTree, details, overrides, mapper);
     }
 
     case "nullable": {
       const fieldfns = createFieldForTParam0(adlTree, declResolver);
       if (fieldfns !== null && fieldfns.validate("") !== null) {
-        return fieldVisitor(nullableField(fieldfns), mapper/**factory, adlTree.typeExpr, */);
+        return fieldVisitor(nullableField(fieldfns), overrides, mapper/**factory, adlTree.typeExpr, */);
       } else {
         // Use a maybe editor for now...
         const maybeTypeExpr = systypes.texprMaybe({ value: details.param.typeExpr });
@@ -78,7 +97,7 @@ export function createVisitor0(
           bFromA: maybeFromNullable,
         } as Mapper<unknown, unknown>;
         const adlTree = adltree.createAdlTree(maybeTypeExpr.value, declResolver);
-        return createVisitor0(declResolver, nullContext, adlTree, mapper);
+        return createVisitor0(declResolver, nullContext, adlTree, overrides, mapper);
         // const mappedVistor = {
         //   ...maybeEditor,
         // };
@@ -88,7 +107,7 @@ export function createVisitor0(
     }
     case "vector": {
       // const _underlyingVEditor = createVEditor0(declResolver,nullContext,  details.param, factory);
-      return unimplementedVisitor(adlTree.typeExpr);
+      return unimplementedVisitor(adlTree.typeExpr, overrides);
     }
     case "stringmap": {
       // An veditor over StringMap<T> is implemented in terms of
@@ -110,7 +129,14 @@ export function createVisitor0(
         aFromB: stringMapFromMap,
         bFromA: mapFromStringMap,
       } as Mapper<unknown, unknown>;
-      return mapEntryVectorVisitor(declResolver, ctx, adlrt.texprString(), { value: valueType }, mapper);
+      return mapEntryVectorVisitor(
+        declResolver,
+        ctx,
+        adlrt.texprString(),
+        { value: valueType },
+        overrides,
+        mapper,
+      );
       // const mappedVistor = {
       //   ...underlyingVisitor,
       //   mapping: {
@@ -128,12 +154,13 @@ function mapEntryVectorVisitor<K, V>(
   ctx: InternalContext,
   ktype: adlrt.ATypeExpr<K>,
   vtype: adlrt.ATypeExpr<V>,
+  overrides: Override[],
   mapper: Mapper<unknown, unknown>,
 ): VisitorU {
   type MapType = systypes.MapEntry<K, V>[];
   const mapTypeExpr: adlrt.ATypeExpr<MapType> = adlrt.texprVector(systypes.texprMapEntry(ktype, vtype));
   const mapAdlTree = adltree.createAdlTree(mapTypeExpr.value, declResolver);
-  return createVisitor0(declResolver, ctx, mapAdlTree, mapper);
+  return createVisitor0(declResolver, ctx, mapAdlTree, overrides, mapper);
 }
 
 
@@ -185,8 +212,16 @@ function createFieldForTParam0(
   return createField(adlTree1);
 }
 
-export function fieldVisitor<T>(fieldfns: FieldFns<T>, mapper?: Mapper<unknown, unknown>): VisitorU {
-  function visit(env: unknown, acceptor: AcceptorsU): unknown {
+export function fieldVisitor<T>(
+  fieldfns: FieldFns<T>,
+  overrides: Override[],
+  mapper?: Mapper<unknown, unknown>
+): VisitorU {
+  function visit(name: string, env: unknown, acceptor: AcceptorsU): unknown {
+    const oRide = overrides.find(o => o.name === name && o.acceptField);
+    if (oRide && oRide.acceptField) {
+      oRide.acceptField(env, { mapper, fieldfns });
+    }
     return acceptor.acceptField(env, { mapper, fieldfns });
   }
   return {
@@ -197,7 +232,8 @@ export function fieldVisitor<T>(fieldfns: FieldFns<T>, mapper?: Mapper<unknown, 
 export function structVisitor(
   declResolver: adlrt.DeclResolver,
   struct: adltree.Struct,
-  // mapper: MapperOption,
+  overrides: Override[],
+  mapper?: Mapper<unknown, unknown>,
 ): VisitorU {
   const fieldDetails: FieldDetails[] = struct.fields.map((field, index) => {
     const jsonBinding = createJsonBinding<unknown>(declResolver, { value: field.adlTree.typeExpr });
@@ -205,7 +241,7 @@ export function structVisitor(
       scopedDecl: { moduleName: struct.moduleName, decl: struct.astDecl },
       field: field.astField
     };
-    const visitor = createVisitor0(declResolver, ctx, field.adlTree, undefined);
+    const visitor = createVisitor0(declResolver, ctx, field.adlTree, overrides, undefined);
     return {
       name: field.astField.name,
       index,
@@ -216,8 +252,12 @@ export function structVisitor(
     };
   });
 
-  function visit<I, O>(env: I, acceptor: AcceptorsIO<I, O>): O {
-    return acceptor.acceptStruct(env, { fieldDetails });
+  function visit<I, O>(name: string, env: I, acceptor: AcceptorsIO<I, O>): O {
+    const oRide = overrides.find(o => o.name === name && o.acceptStruct);
+    if (oRide && oRide.acceptStruct) {
+      return oRide.acceptStruct(env, { mapper, fieldDetails });
+    }
+    return acceptor.acceptStruct(env, { mapper, fieldDetails });
   }
 
   return {
@@ -229,6 +269,7 @@ export function unionVisitor(
   declResolver: adlrt.DeclResolver,
   _adlTree: adltree.AdlTree,
   union: adltree.Union,
+  overrides: Override[],
   mapper?: Mapper<unknown, unknown>,
 ): VisitorU {
 
@@ -247,11 +288,15 @@ export function unionVisitor(
       name: field.astField.name,
       label: formLabel,
       index,
-      visitor: () => createVisitor0(declResolver, ctx, field.adlTree, undefined)
+      visitor: () => createVisitor0(declResolver, ctx, field.adlTree, overrides, undefined)
     };
   });
 
-  function visit<I, O>(env: I, acceptor: AcceptorsIO<I, O>): O {
+  function visit<I, O>(name: string, env: I, acceptor: AcceptorsIO<I, O>): O {
+    const oRide = overrides.find(o => o.name === name && o.acceptUnion);
+    if (oRide && oRide.acceptUnion) {
+      return oRide.acceptUnion(env, unionDesc);
+    }
     return acceptor.acceptUnion(env, unionDesc);
   }
 
@@ -260,17 +305,29 @@ export function unionVisitor(
   };
 }
 
-export function voidVisitor(): VisitorU {
-  function visit<I, O>(env: I, acceptor: AcceptorsIO<I, O>): O {
-    return acceptor.acceptVoid(env);
+export function voidVisitor(
+  overrides: Override[],
+): VisitorU {
+  function visit<I, O>(name: string, env: I, acceptor: AcceptorsIO<I, O>): O {
+    const oRide = overrides.find(o => o.name === name && o.acceptVoid);
+    if (oRide && oRide.acceptVoid) {
+      return oRide.acceptVoid(env, {});
+    }
+    return acceptor.acceptVoid(env, {});
   }
   return {
     visit,
   };
 }
 
-export function vectorVisitor(): VisitorU {
-  function visit<I, O>(env: I, acceptor: AcceptorsIO<I, O>): O {
+export function vectorVisitor(
+  overrides: Override[],
+): VisitorU {
+  function visit<I, O>(name: string, env: I, acceptor: AcceptorsIO<I, O>): O {
+    const oRide = overrides.find(o => o.name === name && o.acceptVector);
+    if (oRide && oRide.acceptVector) {
+      return oRide.acceptVector(env, {});
+    }
     throw new Error("not implemented");
   }
   return {
@@ -278,8 +335,15 @@ export function vectorVisitor(): VisitorU {
   };
 }
 
-export function unimplementedVisitor(typeExpr: adlast.TypeExpr): VisitorU {
-  function visit<I, O>(env: I, acceptor: AcceptorsIO<I, O>): O {
+export function unimplementedVisitor(
+  typeExpr: adlast.TypeExpr,
+  overrides: Override[],
+): VisitorU {
+  function visit<I, O>(name: string, env: I, acceptor: AcceptorsIO<I, O>): O {
+    const oRide = overrides.find(o => o.name === name && o.acceptUnimplemented);
+    if (oRide && oRide.acceptUnimplemented) {
+      return oRide.acceptUnimplemented(env, { typeExpr });
+    }
     return acceptor.acceptUnimplemented(env, { typeExpr });
   }
   return {

@@ -106,7 +106,7 @@ export type FieldDescriptor = {
 
 export type StructDescriptor = {
   fieldDetails: FieldDetails[];
-  // mapper: Mapper<unknown, unknown> | null;
+  mapper?: Mapper<unknown, unknown>;
 };
 export type FieldDetails = {
   name: string;
@@ -129,13 +129,17 @@ export type UnionBranch = {
   visitor: () => VisitorU;
 };
 
+export type VectorDescriptor = {
+};
 
+export type VoidDescriptor = {
+};
 
 export interface Acceptors<FI, FO, SI, SO, UI, UO, VI, VO, AI, AO, XI, XO> {
   acceptField(env: FI, fieldDesc: FieldDescriptor): FO;
   acceptStruct(env: SI, structDesc: StructDescriptor): SO;
   acceptUnion(env: UI, unionDesc: UnionDescriptor): UO;
-  acceptVoid(env: VI): VO;
+  acceptVoid(env: VI, desc: VoidDescriptor): VO;
   acceptVector(env: AI, desc: StructDescriptor | UnionDescriptor): AO;
   acceptUnimplemented(env: XI, props: AcceptUnimplementedProps): XO;
 }
@@ -150,7 +154,11 @@ export type AcceptorsIO<I, O> = Acceptors<I, O, I, O, I, O, I, O, I, O, I, O>;
 export type AcceptorsU = AcceptorsIO<unknown, unknown>;
 
 export interface Visitor<I, O> {
-  visit(env: I, acceptor: AcceptorsIO<I, O>): O;
+  // name: string id of the visit used for customizing
+  // env:  stack environment state passed to acceptor
+  // acceptor: typed callbacks
+  // return: stack environment passed back to the caller
+  visit(name: string, env: I, acceptor: AcceptorsIO<I, O>): O;
   // mapping?: Mapper<A, B>;
 }
 export type VisitorU = Visitor<unknown, unknown>;
@@ -159,11 +167,95 @@ export type VisitorU = Visitor<unknown, unknown>;
 //   visit(env: unknown, acceptor: AcceptorsU): unknown;
 //   mapping: Mapper<A, B>;
 // }
+
+export type Override = {
+  name: string,
+  acceptField?: (env: any, fieldDesc: FieldDescriptor) => any;
+  acceptStruct?: (env: any, structDesc: StructDescriptor) => any;
+  acceptUnion?: (env: any, unionDesc: UnionDescriptor) => any;
+  acceptVoid?: (env: any, voidDesc: VoidDescriptor) => any;
+  acceptVector?: (env: any, desc: VectorDescriptor) => any;
+  acceptUnimplemented?: (env: any, props: AcceptUnimplementedProps) => any;
+};
+
+export type OverrideNames = "getInitialState"
+  | "validate"
+  | "stateFromValue"
+  | "valueFromState"
+  | "update"
+  | "render"
+  ;
+
+export function makeOverride(
+  name: OverrideNames,
+  fns: {
+    acceptField?: (env: any, fieldDesc: FieldDescriptor) => any,
+    acceptStruct?: (env: any, structDesc: StructDescriptor) => any,
+    acceptUnion?: (env: any, unionDesc: UnionDescriptor) => any,
+    acceptVoid?: (env: any, voidDesc: VoidDescriptor) => any,
+    acceptVector?: (env: any, desc: VectorDescriptor) => any,
+    acceptUnimplemented?: (env: any, props: AcceptUnimplementedProps) => any,
+  }
+): Override {
+  return {
+    name,
+    acceptField: fns.acceptField,
+    acceptStruct: fns.acceptStruct,
+    acceptUnion: fns.acceptUnion,
+    acceptVoid: fns.acceptVoid,
+    acceptVector: fns.acceptVector,
+    acceptUnimplemented: fns.acceptUnimplemented,
+  };
+}
+
+// export function AcceptFieldOverride<FI, FO> = {
+//   name: string;
+//   acceptField: (env: FI, fieldDesc: FieldDescriptor) => FO;
+// };
+// export type AcceptStructOverride<SI, SO> = {
+//   name: string;
+//   acceptStruct: (env: SI, structDesc: StructDescriptor) => SO;
+// };
+// export type AcceptUnionOverride<UI, UO> = {
+//   name: string;
+//   acceptUnion: (env: UI, unionDesc: UnionDescriptor) => UO;
+// };
+// export type AcceptVoidOverride<VI, VO> = {
+//   name: string;
+//   acceptVoid: (env: VI) => VO;
+// };
+// export type AcceptVectorOverride<AI, AO> = {
+//   name: string;
+//   acceptVector: (env: AI, desc: StructDescriptor | UnionDescriptor) => AO;
+// };
+// export type AcceptUnimplOverride<XI, XO> = {
+//   name: string;
+//   acceptUnimplemented: (env: XI, props: AcceptUnimplementedProps) => XO;
+// };
+
+
+
+
 export interface Mapper<A, B> {
   aFromB: (b: B) => A;
   bFromA: (a: A) => B;
 }
 
+export type AdlTypeMapper<A, B> = {
+  texprA: adlrt.ATypeExpr<A>;
+  texprB: adlrt.ATypeExpr<B>;
+  aFromB: (b: B) => A;
+  bFromA: (a: A) => B;
+};
+
+export function makeAdlMapper<A, B>(
+  texprA: adlrt.ATypeExpr<A>,
+  texprB: adlrt.ATypeExpr<B>,
+  aFromB: (b: B) => A,
+  bFromA: (a: A) => B,
+) {
+  return { texprA, texprB, aFromB, bFromA };
+}
 
 // export type Customize = (ctx: CustomContext) => AcceptorsU | null;
 

@@ -152,10 +152,67 @@ export function texprFixedProps(): ADL.ATypeExpr<FixedProps> {
   return {value : {typeRef : {kind: "reference", value : snFixedProps}, parameters : []}};
 }
 
+export interface Full {
+  id: string;
+  firstname: string;
+  surname: string;
+}
+
+export function makeFull(
+  input: {
+    id: string,
+    firstname: string,
+    surname: string,
+  }
+): Full {
+  return {
+    id: input.id,
+    firstname: input.firstname,
+    surname: input.surname,
+  };
+}
+
+const Full_AST : ADL.ScopedDecl =
+  {"moduleName":"examples","decl":{"annotations":[],"type_":{"kind":"struct_","value":{"typeParams":[],"fields":[{"annotations":[],"serializedName":"id","default":{"kind":"nothing"},"name":"id","typeExpr":{"typeRef":{"kind":"primitive","value":"String"},"parameters":[]}},{"annotations":[],"serializedName":"firstname","default":{"kind":"nothing"},"name":"firstname","typeExpr":{"typeRef":{"kind":"primitive","value":"String"},"parameters":[]}},{"annotations":[],"serializedName":"surname","default":{"kind":"nothing"},"name":"surname","typeExpr":{"typeRef":{"kind":"primitive","value":"String"},"parameters":[]}}]}},"name":"Full","version":{"kind":"nothing"}}};
+
+export const snFull: ADL.ScopedName = {moduleName:"examples", name:"Full"};
+
+export function texprFull(): ADL.ATypeExpr<Full> {
+  return {value : {typeRef : {kind: "reference", value : snFull}, parameters : []}};
+}
+
+export interface Display {
+  name: string;
+  model: Full;
+}
+
+export function makeDisplay(
+  input: {
+    name: string,
+    model: Full,
+  }
+): Display {
+  return {
+    name: input.name,
+    model: input.model,
+  };
+}
+
+const Display_AST : ADL.ScopedDecl =
+  {"moduleName":"examples","decl":{"annotations":[],"type_":{"kind":"struct_","value":{"typeParams":[],"fields":[{"annotations":[],"serializedName":"name","default":{"kind":"nothing"},"name":"name","typeExpr":{"typeRef":{"kind":"primitive","value":"String"},"parameters":[]}},{"annotations":[],"serializedName":"model","default":{"kind":"nothing"},"name":"model","typeExpr":{"typeRef":{"kind":"reference","value":{"moduleName":"examples","name":"Full"}},"parameters":[]}}]}},"name":"Display","version":{"kind":"nothing"}}};
+
+export const snDisplay: ADL.ScopedName = {moduleName:"examples", name:"Display"};
+
+export function texprDisplay(): ADL.ATypeExpr<Display> {
+  return {value : {typeRef : {kind: "reference", value : snDisplay}, parameters : []}};
+}
+
 export const _AST_MAP: { [key: string]: ADL.ScopedDecl } = {
   "examples.Name" : Name_AST,
   "examples.Gender" : Gender_AST,
   "examples.Person" : Person_AST,
   "examples.Hierarchy" : Hierarchy_AST,
-  "examples.FixedProps" : FixedProps_AST
+  "examples.FixedProps" : FixedProps_AST,
+  "examples.Full" : Full_AST,
+  "examples.Display" : Display_AST
 };

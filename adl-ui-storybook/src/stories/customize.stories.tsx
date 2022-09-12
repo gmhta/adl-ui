@@ -1,83 +1,74 @@
 import { storiesOf } from '@storybook/react';
-import React, { useState } from 'react';
-import styled from 'styled-components';
-import * as adlrt from "@timbod7/adl-rt/runtime/adl";
-import * as adlsys from "@timbod7/adl-rt/sys/types";
+import { typeExprToStringUnscoped } from '@timbod7/adl-rt/runtime/utils';
 import {
   createVEditor,
   Factory,
   FieldEditorProps,
+  makeAdlMapper,
+  makeOverride,
+  makeVEditor,
   Rendered,
+  StructDescriptor,
   StructEditorProps,
+  StructFieldProps,
   UnimplementedEditorProps,
   UnionEditorProps,
   VEditor
 } from "@timbod7/adl-ui";
-import { typeExprToStringUnscoped } from '@timbod7/adl-rt/runtime/utils';
+import React, { useState } from 'react';
+import styled from 'styled-components';
 
 import * as adlex from '../adl-gen/examples';
 import { RESOLVER } from "../adl-gen/resolver";
 import { Select } from "./select.stories";
 
-storiesOf("VEditors", module)
-  .add("String", () => {
-    const veditor = createVEditor(adlrt.texprString(), RESOLVER, VEDITOR_FACTORY);
-    return renderVEditorStory(veditor);
-  })
-  .add("Word16", () => {
-    const veditor = createVEditor(adlrt.texprWord16(), RESOLVER, VEDITOR_FACTORY);
-    return renderVEditorStory(veditor);
-  })
-  .add("Word16 (disabled)", () => {
-    const veditor = createVEditor(adlrt.texprWord16(), RESOLVER, VEDITOR_FACTORY);
-    return renderVEditorStory(veditor, true, 13);
-  })
-  .add("Bool", () => {
-    const veditor = createVEditor(adlrt.texprBool(), RESOLVER, VEDITOR_FACTORY);
-    return renderVEditorStory(veditor);
-  })
-  .add("Json", () => {
-    const veditor = createVEditor(adlrt.texprJson(), RESOLVER, VEDITOR_FACTORY);
-    return renderVEditorStory(veditor);
-  })
-  .add("Name", () => {
-    const veditor = createVEditor(adlex.texprName(), RESOLVER, VEDITOR_FACTORY);
-    return renderVEditorStory(veditor);
-  })
-  .add("Person", () => {
-    const veditor = createVEditor(adlex.texprPerson(), RESOLVER, VEDITOR_FACTORY);
-    return renderVEditorStory(veditor);
-  })
-  .add("Gender", () => {
-    const veditor = createVEditor(adlex.texprGender(), RESOLVER, VEDITOR_FACTORY);
-    return renderVEditorStory(veditor);
-  })
-  .add("Hierarchy", () => {
-    const veditor = createVEditor(adlex.texprHierarchy(), RESOLVER, VEDITOR_FACTORY);
-    return renderVEditorStory(veditor);
-  })
-  .add("Maybe<String>", () => {
-    const veditor = createVEditor(adlsys.texprMaybe(adlrt.texprString()), RESOLVER, VEDITOR_FACTORY);
-    return renderVEditorStory(veditor);
-  })
-  .add("Maybe<Word32>", () => {
-    const veditor = createVEditor(adlsys.texprMaybe(adlrt.texprWord32()), RESOLVER, VEDITOR_FACTORY);
-    return renderVEditorStory(veditor);
-  })
-  .add("Maybe<Person>", () => {
-    const veditor = createVEditor(adlsys.texprMaybe(adlex.texprPerson()), RESOLVER, VEDITOR_FACTORY);
-    return renderVEditorStory(veditor);
-  })
-  .add("Nullable<String>", () => {
-    const veditor = createVEditor(adlrt.texprNullable(adlrt.texprString()), RESOLVER, VEDITOR_FACTORY);
-    return renderVEditorStory(veditor);
-  })
-  .add("Nullable<Word32>", () => {
-    const veditor = createVEditor(adlrt.texprNullable(adlrt.texprWord32()), RESOLVER, VEDITOR_FACTORY);
-    return renderVEditorStory(veditor);
-  })
-  .add("Nullable<Person>", () => {
-    const veditor = createVEditor(adlrt.texprNullable(adlex.texprPerson()), RESOLVER, VEDITOR_FACTORY);
+storiesOf("Overrides & Mappers", module)
+  .add("Full->Display", () => {
+    const veditor = createVEditor(adlex.texprFull(), RESOLVER, VEDITOR_FACTORY,
+      [
+        makeOverride("render", {
+          acceptStruct: (env: any, structDesc: StructDescriptor): any => {
+            const { state, disabled, onUpdate } = env;
+            const fields: StructFieldProps[] = structDesc.fieldDetails.flatMap(fd => {
+              if (fd.name === "model") {
+                return [];
+              }
+              const veditor = makeVEditor(fd.visitor, VEDITOR_FACTORY);
+              return [{
+                name: fd.name,
+                label: fd.label,
+                veditor: {
+                  veditor,
+                  state: state.fieldStates[fd.name],
+                  onUpdate: event => {
+                    onUpdate({ kind: "field", field: fd.name, fieldEvent: event });
+                  }
+                }
+              }];
+            });
+            return VEDITOR_FACTORY.renderStructEditor({ fields, disabled });
+          }
+        })
+      ],
+      [
+        makeAdlMapper<adlex.Full, adlex.Display>(
+          adlex.texprFull(),
+          adlex.texprDisplay(),
+          (b) => {
+            const str = b.name.split(" ");
+            return adlex.makeFull({
+              id: b.model.id,
+              firstname: str[0],
+              surname: str.length === 1 ? "" : str.slice(1).join(" "),
+            });
+          },
+          (a) => adlex.makeDisplay({
+            name: `${a.firstname} ${a.surname}`,
+            model: a,
+          }),
+        ),
+      ]
+    );
     return renderVEditorStory(veditor);
   })
   ;
