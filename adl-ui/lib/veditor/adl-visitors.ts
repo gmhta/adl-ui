@@ -222,7 +222,7 @@ export function fieldVisitor<T>(
   function visit(name: string, env: unknown, acceptor: AcceptorsU): unknown {
     const oRide = overrides.find(o => o.name === name && o.acceptField);
     if (oRide && oRide.acceptField) {
-      oRide.acceptField(env, { mapper, texpr, fieldfns });
+      return oRide.acceptField(env, { mapper, texpr, fieldfns });
     }
     return acceptor.acceptField(env, { mapper, texpr, fieldfns });
   }

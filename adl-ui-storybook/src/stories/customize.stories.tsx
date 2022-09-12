@@ -3,6 +3,7 @@ import { typeExprsEqual, typeExprToStringUnscoped } from '@timbod7/adl-rt/runtim
 import {
   createVEditor,
   Factory,
+  FieldDescriptor,
   FieldEditorProps,
   makeAdlMapper,
   makeOverride,
@@ -11,8 +12,10 @@ import {
   StructDescriptor,
   StructEditorProps,
   StructFieldProps,
+  StructState,
   UnimplementedEditorProps,
   UnionEditorProps,
+  validateAcceptor,
   VEditor
 } from "@timbod7/adl-ui";
 import React, { useState } from 'react';
@@ -25,33 +28,52 @@ import { Select } from "./select.stories";
 storiesOf("Overrides & Mappers", module)
   .add("Full->Display", () => {
     const veditor = createVEditor(adlex.texprFull(), RESOLVER, VEDITOR_FACTORY,
-      [
-        makeOverride("render", {
-          acceptStruct: (env: any, structDesc: StructDescriptor): any => {
-            const { state, disabled, onUpdate } = env;
-            const fields: StructFieldProps[] = structDesc.fieldDetails.flatMap(fd => {
-              if (typeExprsEqual(adlex.texprDisplay().value, structDesc.texpr.value) &&  fd.name === "model") {
+      {
+        overrides: [
+          makeOverride("render", {
+            acceptStruct: (env: any, structDesc: StructDescriptor): any => {
+              const { state, disabled, onUpdate } = env;
+              const fields: StructFieldProps[] = structDesc.fieldDetails.flatMap(fd => {
+                if (typeExprsEqual(adlex.texprDisplay().value, structDesc.texpr.value) && fd.name === "model") {
+                  return [];
+                }
+                const veditor = makeVEditor(fd.visitor, VEDITOR_FACTORY);
+                return [{
+                  name: fd.name,
+                  label: fd.label,
+                  veditor: {
+                    veditor,
+                    state: state.fieldStates[fd.name],
+                    onUpdate: event => {
+                      onUpdate({ kind: "field", field: fd.name, fieldEvent: event });
+                    }
+                  }
+                }];
+              });
+              return VEDITOR_FACTORY.renderStructEditor({ fields, disabled });
+            }
+          }),
+          makeOverride("validate", {
+            // acceptStruct: function (state: StructState, structDesc: StructDescriptor): string[] {
+            //   let errors: string[] = [];
+            //   for (const fd of structDesc.fieldDetails) {
+            //     if (fd.name === "id") {
+            //       continue;
+            //     }
+            //     const result = fd.visitor.visit("validate", state.fieldStates[fd.name], validateAcceptor) as string[];
+            //     errors = errors.concat(result.map(err => fd.name + ": " + err));
+            //   }
+            //   return errors;
+            // },
+            acceptField: (t: string, fieldDesc: FieldDescriptor): string[] => {
+              if (fieldDesc.texpr.value.typeRef.kind === "primitive" && fieldDesc.texpr.value.typeRef.value === "Int64") {
                 return [];
               }
-              const veditor = makeVEditor(fd.visitor, VEDITOR_FACTORY);
-              return [{
-                name: fd.name,
-                label: fd.label,
-                veditor: {
-                  veditor,
-                  state: state.fieldStates[fd.name],
-                  onUpdate: event => {
-                    onUpdate({ kind: "field", field: fd.name, fieldEvent: event });
-                  }
-                }
-              }];
-            });
-            return VEDITOR_FACTORY.renderStructEditor({ fields, disabled });
-          }
-        })
-      ],
-      [
-        makeAdlMapper<adlex.Full, adlex.Display>(
+              return validateAcceptor.acceptField(t, fieldDesc);
+            },
+          })
+        ],
+        mappers: [makeAdlMapper<adlex.Full, adlex.Display>(
           adlex.texprFull(),
           adlex.texprDisplay(),
           (b) => {
@@ -66,8 +88,8 @@ storiesOf("Overrides & Mappers", module)
             name: `${a.firstname} ${a.surname}`,
             model: a,
           }),
-        ),
-      ]
+        )],
+      }
     );
     return renderVEditorStory(veditor);
   })

@@ -153,14 +153,14 @@ export function texprFixedProps(): ADL.ATypeExpr<FixedProps> {
 }
 
 export interface Full {
-  id: string;
+  id: number;
   firstname: string;
   surname: string;
 }
 
 export function makeFull(
   input: {
-    id: string,
+    id: number,
     firstname: string,
     surname: string,
   }
@@ -173,7 +173,7 @@ export function makeFull(
 }
 
 const Full_AST : ADL.ScopedDecl =
-  {"moduleName":"examples","decl":{"annotations":[],"type_":{"kind":"struct_","value":{"typeParams":[],"fields":[{"annotations":[],"serializedName":"id","default":{"kind":"nothing"},"name":"id","typeExpr":{"typeRef":{"kind":"primitive","value":"String"},"parameters":[]}},{"annotations":[],"serializedName":"firstname","default":{"kind":"nothing"},"name":"firstname","typeExpr":{"typeRef":{"kind":"primitive","value":"String"},"parameters":[]}},{"annotations":[],"serializedName":"surname","default":{"kind":"nothing"},"name":"surname","typeExpr":{"typeRef":{"kind":"primitive","value":"String"},"parameters":[]}}]}},"name":"Full","version":{"kind":"nothing"}}};
+  {"moduleName":"examples","decl":{"annotations":[],"type_":{"kind":"struct_","value":{"typeParams":[],"fields":[{"annotations":[],"serializedName":"id","default":{"kind":"nothing"},"name":"id","typeExpr":{"typeRef":{"kind":"primitive","value":"Int64"},"parameters":[]}},{"annotations":[],"serializedName":"firstname","default":{"kind":"nothing"},"name":"firstname","typeExpr":{"typeRef":{"kind":"primitive","value":"String"},"parameters":[]}},{"annotations":[],"serializedName":"surname","default":{"kind":"nothing"},"name":"surname","typeExpr":{"typeRef":{"kind":"primitive","value":"String"},"parameters":[]}}]}},"name":"Full","version":{"kind":"nothing"}}};
 
 export const snFull: ADL.ScopedName = {moduleName:"examples", name:"Full"};
 

@@ -33,7 +33,7 @@ union FixedProps {
 };
 
 struct Full {
-  String id;
+  Int64 id;
   String firstname;
   String surname;
 };
