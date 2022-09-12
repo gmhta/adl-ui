@@ -18,6 +18,7 @@ import {
   InternalContext,
   Mapper,
   Override,
+  StructDescriptor,
   UnionDescriptor,
   VisitorU
 } from "./type";
@@ -56,7 +57,7 @@ export function createVisitor0(
         if (fldfns === null) {
           return unimplementedVisitor(adlTree.typeExpr, overrides);
         }
-        return fieldVisitor(fldfns, overrides, mapper/* factory, adlTree.typeExpr */);
+        return fieldVisitor(fldfns, { value: adlTree.typeExpr }, overrides, mapper);
       }
     }
     case "struct": {
@@ -79,7 +80,7 @@ export function createVisitor0(
       if (isMaybe(adlTree.typeExpr)) {
         const fldfns = createFieldForTParam0(adlTree, declResolver);
         if (fldfns && fldfns.validate("") !== null) {
-          return fieldVisitor(maybeField(fldfns), overrides, mapper /** adlTree.typeExpr */);
+          return fieldVisitor(maybeField(fldfns), { value: adlTree.typeExpr }, overrides, mapper);
         }
       }
       return unionVisitor(declResolver, adlTree, details, overrides, mapper);
@@ -88,7 +89,7 @@ export function createVisitor0(
     case "nullable": {
       const fieldfns = createFieldForTParam0(adlTree, declResolver);
       if (fieldfns !== null && fieldfns.validate("") !== null) {
-        return fieldVisitor(nullableField(fieldfns), overrides, mapper/**factory, adlTree.typeExpr, */);
+        return fieldVisitor(nullableField(fieldfns), { value: adlTree.typeExpr }, overrides, mapper);
       } else {
         // Use a maybe editor for now...
         const maybeTypeExpr = systypes.texprMaybe({ value: details.param.typeExpr });
@@ -214,15 +215,16 @@ function createFieldForTParam0(
 
 export function fieldVisitor<T>(
   fieldfns: FieldFns<T>,
+  texpr: adlrt.ATypeExpr<unknown>,
   overrides: Override[],
   mapper?: Mapper<unknown, unknown>
 ): VisitorU {
   function visit(name: string, env: unknown, acceptor: AcceptorsU): unknown {
     const oRide = overrides.find(o => o.name === name && o.acceptField);
     if (oRide && oRide.acceptField) {
-      oRide.acceptField(env, { mapper, fieldfns });
+      oRide.acceptField(env, { mapper, texpr, fieldfns });
     }
-    return acceptor.acceptField(env, { mapper, fieldfns });
+    return acceptor.acceptField(env, { mapper, texpr, fieldfns });
   }
   return {
     visit
@@ -253,11 +255,25 @@ export function structVisitor(
   });
 
   function visit<I, O>(name: string, env: I, acceptor: AcceptorsIO<I, O>): O {
+    const texpr: adlrt.ATypeExpr<unknown> = {
+      value: adlast.makeTypeExpr({
+        typeRef: adlast.makeTypeRef("reference", adlast.makeScopedName({
+          moduleName: struct.moduleName,
+          name: struct.astDecl.name,
+        })),
+        parameters: [],
+      })
+    };
+    const desc: StructDescriptor = {
+      mapper,
+      texpr,
+      fieldDetails,
+    };
     const oRide = overrides.find(o => o.name === name && o.acceptStruct);
     if (oRide && oRide.acceptStruct) {
-      return oRide.acceptStruct(env, { mapper, fieldDetails });
+      return oRide.acceptStruct(env, desc);
     }
-    return acceptor.acceptStruct(env, { mapper, fieldDetails });
+    return acceptor.acceptStruct(env, desc);
   }
 
   return {
@@ -273,8 +289,19 @@ export function unionVisitor(
   mapper?: Mapper<unknown, unknown>,
 ): VisitorU {
 
-  const unionDesc: UnionDescriptor = {
+  const texpr: adlrt.ATypeExpr<unknown> = {
+    value: adlast.makeTypeExpr({
+      typeRef: adlast.makeTypeRef("reference", adlast.makeScopedName({
+        moduleName: union.moduleName,
+        name: union.astDecl.name,
+      })),
+      parameters: [],
+    })
+  };
+const unionDesc: UnionDescriptor = {
     branchDetails: {},
+    texpr,
+    // scopedDecl: { moduleName: union.moduleName, decl: union.astDecl },
     mapper
   };
 

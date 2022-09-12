@@ -101,11 +101,13 @@ export interface InternalContext {
 
 export type FieldDescriptor = {
   fieldfns: FieldFns<unknown>;
+  texpr: adlrt.ATypeExpr<unknown>;
   mapper?: Mapper<unknown, unknown>;
 };
 
 export type StructDescriptor = {
   fieldDetails: FieldDetails[];
+  texpr: adlrt.ATypeExpr<unknown>;
   mapper?: Mapper<unknown, unknown>;
 };
 export type FieldDetails = {
@@ -119,6 +121,8 @@ export type FieldDetails = {
 
 export type UnionDescriptor = {
   branchDetails: Record<string, UnionBranch>;
+  texpr: adlrt.ATypeExpr<unknown>;
+  // scopedDecl: adlast.ScopedDecl;
   mapper?: Mapper<unknown, unknown>;
 };
 

@@ -1,5 +1,5 @@
 import { storiesOf } from '@storybook/react';
-import { typeExprToStringUnscoped } from '@timbod7/adl-rt/runtime/utils';
+import { typeExprsEqual, typeExprToStringUnscoped } from '@timbod7/adl-rt/runtime/utils';
 import {
   createVEditor,
   Factory,
@@ -30,7 +30,7 @@ storiesOf("Overrides & Mappers", module)
           acceptStruct: (env: any, structDesc: StructDescriptor): any => {
             const { state, disabled, onUpdate } = env;
             const fields: StructFieldProps[] = structDesc.fieldDetails.flatMap(fd => {
-              if (fd.name === "model") {
+              if (typeExprsEqual(adlex.texprDisplay().value, structDesc.texpr.value) &&  fd.name === "model") {
                 return [];
               }
               const veditor = makeVEditor(fd.visitor, VEDITOR_FACTORY);
