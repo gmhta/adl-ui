@@ -1,43 +1,54 @@
-import { FieldFns } from "../fields/type";
+import * as adlrt from "../../adl-gen/runtime/adl";
 import { SelectState } from "../select";
-import { Acceptors, AcceptorsIsO, AcceptorsOsIs, AcceptUnimplementedProps, FieldDescriptor, StructDescriptor, UnionDescriptor, Visitor } from "./adl-visitors";
-import { Factory, StructFieldProps, VEditorProps } from "./adlfactory";
-import { Rendered, UpdateFn } from "./type";
+import {
+  Acceptors, AcceptorsIsO,
+  AcceptorsOsIs, AcceptUnimplementedProps,
+  createVisitor, CustomContext, Customize,
+  FieldDescriptor,
+  StructDescriptor, UnionDescriptor, Visitor, VisitorU
+} from "./adl-visitors";
+import { Factory, IVEditor, Rendered, StructFieldProps, UpdateFn, VEditorProps } from "./type";
 
 export type TandErrors<T> = {
   errors: string[];
   value: T | undefined;
 };
 
-export interface IVEditor<T, S, E> {
-  getInitialState(): S;
-  // Construct the state for an editor with current value T
-  stateFromValue(value: T): S;
-  // Check whether the current state can produce a T. Return
-  // a list of errors.
-  validate(state: S): string[];
-  // If valid, construct a value of type T representing the current
-  // value
-  valueFromState(state: S): T;
-  // Returns a copy of the state, updated to reflect the given event
-  update(state: S, event: E): S;
-  // Render the editor's current state as a UI.
-  render(state: S, disabled: boolean, onUpdate: UpdateFn<E>): Rendered;
+export function createVEditor<T>(
+  typeExpr: adlrt.ATypeExpr<T>,
+  declResolver: adlrt.DeclResolver,
+  factory: Factory,
+  customize?: Customize
+) {
+  const customize0 = customize ? customize : (ctx: CustomContext) => null;
+  const visitor = createVisitor(typeExpr, declResolver, customize0);
+  return makeVEditor(visitor, factory);
 }
 
-export function makeVEditor<T>(visitor: Visitor<unknown, unknown>, factory: Factory): IVEditor<T, unknown, unknown> {
+export function makeVEditor<T>(visitor: VisitorU, factory: Factory): IVEditor<T, unknown, unknown> {
   return {
-    // The state for an empty editor
     getInitialState: () => getInitialState(visitor),
-    // Construct the state for an editor with current value T
-    stateFromValue: (value: T): unknown => stateFromValue(visitor, value),
-    // Check whether the current state can produce a T. Return a list of errors.
+    stateFromValue: (value: T): unknown => {
+      if (visitor.mapping) {
+        console.log("mapping::stateFromValue")
+        console.log("  a.", value)
+        console.log("  b.", visitor.mapping.bFromA(value))
+        return stateFromValue(visitor, visitor.mapping.bFromA(value));
+      }
+      return stateFromValue(visitor, value);
+    },
     validate: (state: unknown): string[] => validate(visitor, state),
-    // If valid, construct a value of type T representing the current value
-    valueFromState: (state: unknown): T => valueFromState(visitor, state),
-    // Returns a copy of the state, updated to reflect the given event
+    valueFromState: (state: unknown): T => {
+      const value = valueFromState(visitor, state);
+      if (visitor.mapping) {
+        console.log("mapping::valueFromState")
+        console.log("  b.", value)
+        console.log("  a.", visitor.mapping.aFromB(value))
+        return visitor.mapping.aFromB(value) as T;
+      }
+      return value as T;
+    },
     update: (state: unknown, event: unknown): unknown => update(visitor, state, event),
-    // Render the editor's current state as a UI.
     render: (state: unknown, disabled: boolean, onUpdate: UpdateFn<unknown>): Rendered => render(visitor, factory, state, disabled, onUpdate),
   };
 }
@@ -174,11 +185,11 @@ const getInitialStateAcceptor: Acceptors<
   }
 };
 
-export function getInitialState<S>(veditor0: Visitor<void, unknown>): S {
+export function getInitialState<S>(veditor0: Visitor<void, unknown, unknown, unknown>): S {
   return veditor0.visit(undefined, getInitialStateAcceptor) as S;
 }
 
-export function validate<S>(veditor0: Visitor<unknown, unknown>, vstate: S): string[] {
+export function validate<S>(veditor0: VisitorU, vstate: S): string[] {
 
   const acceptor: AcceptorsIsO<
     string,
@@ -229,11 +240,11 @@ export function validate<S>(veditor0: Visitor<unknown, unknown>, vstate: S): str
 }
 
 
-export function stateFromValue<T, S>(veditor0: Visitor<unknown, unknown>, value0: T): S {
+export function stateFromValue<T, S>(veditor0: VisitorU, value0: T): S {
   return veditor0.visit(value0, stateFromValueAcceptor) as S;
 }
 
-export function valueFromState<T, S>(veditor: Visitor<unknown, unknown>, vstate: S): T {
+export function valueFromState<T, S>(veditor: VisitorU, vstate: S): T {
 
   const acceptor: AcceptorsOsIs<
     unknown, string,
@@ -277,7 +288,7 @@ export function valueFromState<T, S>(veditor: Visitor<unknown, unknown>, vstate:
 
 type SE<S, E> = { state: S, event: E; };
 
-export function update<S, E>(veditor: Visitor<unknown, unknown>, state: S, event: E): S {
+export function update<S, E>(veditor: VisitorU, state: S, event: E): S {
   const acceptor: Acceptors<
     SE<string, string>, string,
     SE<StructState, StructEvent>, StructState,
@@ -363,7 +374,7 @@ export function update<S, E>(veditor: Visitor<unknown, unknown>, state: S, event
 
 type RP<S, E> = { state: S, disabled: boolean, onUpdate: UpdateFn<E>; };
 
-export function render<S, E>(veditor: Visitor<unknown, unknown>, factory: Factory, state0: S, disabled0: boolean, onUpdate0: UpdateFn<E>): Rendered {
+export function render<S, E>(veditor: VisitorU, factory: Factory, state0: S, disabled0: boolean, onUpdate0: UpdateFn<E>): Rendered {
   const acceptor: Acceptors<
     RP<string, string>, Rendered,
     RP<StructState, StructEvent>, Rendered,
@@ -424,7 +435,7 @@ export function render<S, E>(veditor: Visitor<unknown, unknown>, factory: Factor
       let veditor: VEditorProps<unknown, unknown, unknown> | null = null;
       if (state.currentField) {
         veditor = {
-          veditor:  makeVEditor(unionDesc[state.currentField].visitor(), factory),
+          veditor: makeVEditor(unionDesc[state.currentField].visitor(), factory),
           state: state.fieldStates[state.currentField],
           onUpdate: event => onUpdate({ kind: "update", event })
         };

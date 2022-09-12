@@ -93,22 +93,28 @@ export function texprPerson(): ADL.ATypeExpr<Person> {
 export interface Hierarchy {
   leader: Person;
   underlings: Hierarchy[];
+  fixedProps: FixedProps;
+  properties: {[key: string]: string};
 }
 
 export function makeHierarchy(
   input: {
     leader: Person,
     underlings: Hierarchy[],
+    fixedProps: FixedProps,
+    properties: {[key: string]: string},
   }
 ): Hierarchy {
   return {
     leader: input.leader,
     underlings: input.underlings,
+    fixedProps: input.fixedProps,
+    properties: input.properties,
   };
 }
 
 const Hierarchy_AST : ADL.ScopedDecl =
-  {"moduleName":"examples","decl":{"annotations":[],"type_":{"kind":"struct_","value":{"typeParams":[],"fields":[{"annotations":[],"serializedName":"leader","default":{"kind":"nothing"},"name":"leader","typeExpr":{"typeRef":{"kind":"reference","value":{"moduleName":"examples","name":"Person"}},"parameters":[]}},{"annotations":[],"serializedName":"underlings","default":{"kind":"nothing"},"name":"underlings","typeExpr":{"typeRef":{"kind":"primitive","value":"Vector"},"parameters":[{"typeRef":{"kind":"reference","value":{"moduleName":"examples","name":"Hierarchy"}},"parameters":[]}]}}]}},"name":"Hierarchy","version":{"kind":"nothing"}}};
+  {"moduleName":"examples","decl":{"annotations":[],"type_":{"kind":"struct_","value":{"typeParams":[],"fields":[{"annotations":[],"serializedName":"leader","default":{"kind":"nothing"},"name":"leader","typeExpr":{"typeRef":{"kind":"reference","value":{"moduleName":"examples","name":"Person"}},"parameters":[]}},{"annotations":[],"serializedName":"underlings","default":{"kind":"nothing"},"name":"underlings","typeExpr":{"typeRef":{"kind":"primitive","value":"Vector"},"parameters":[{"typeRef":{"kind":"reference","value":{"moduleName":"examples","name":"Hierarchy"}},"parameters":[]}]}},{"annotations":[],"serializedName":"fixedProps","default":{"kind":"nothing"},"name":"fixedProps","typeExpr":{"typeRef":{"kind":"reference","value":{"moduleName":"examples","name":"FixedProps"}},"parameters":[]}},{"annotations":[],"serializedName":"properties","default":{"kind":"nothing"},"name":"properties","typeExpr":{"typeRef":{"kind":"primitive","value":"StringMap"},"parameters":[{"typeRef":{"kind":"primitive","value":"String"},"parameters":[]}]}}]}},"name":"Hierarchy","version":{"kind":"nothing"}}};
 
 export const snHierarchy: ADL.ScopedName = {moduleName:"examples", name:"Hierarchy"};
 
@@ -116,9 +122,37 @@ export function texprHierarchy(): ADL.ATypeExpr<Hierarchy> {
   return {value : {typeRef : {kind: "reference", value : snHierarchy}, parameters : []}};
 }
 
+export interface FixedProps_Boss {
+  kind: 'boss';
+  value: Hierarchy;
+}
+export interface FixedProps_Age {
+  kind: 'age';
+  value: number;
+}
+
+export type FixedProps = FixedProps_Boss | FixedProps_Age;
+
+export interface FixedPropsOpts {
+  boss: Hierarchy;
+  age: number;
+}
+
+export function makeFixedProps<K extends keyof FixedPropsOpts>(kind: K, value: FixedPropsOpts[K]) { return {kind, value}; }
+
+const FixedProps_AST : ADL.ScopedDecl =
+  {"moduleName":"examples","decl":{"annotations":[],"type_":{"kind":"union_","value":{"typeParams":[],"fields":[{"annotations":[],"serializedName":"boss","default":{"kind":"nothing"},"name":"boss","typeExpr":{"typeRef":{"kind":"reference","value":{"moduleName":"examples","name":"Hierarchy"}},"parameters":[]}},{"annotations":[],"serializedName":"age","default":{"kind":"nothing"},"name":"age","typeExpr":{"typeRef":{"kind":"primitive","value":"Int32"},"parameters":[]}}]}},"name":"FixedProps","version":{"kind":"nothing"}}};
+
+export const snFixedProps: ADL.ScopedName = {moduleName:"examples", name:"FixedProps"};
+
+export function texprFixedProps(): ADL.ATypeExpr<FixedProps> {
+  return {value : {typeRef : {kind: "reference", value : snFixedProps}, parameters : []}};
+}
+
 export const _AST_MAP: { [key: string]: ADL.ScopedDecl } = {
   "examples.Name" : Name_AST,
   "examples.Gender" : Gender_AST,
   "examples.Person" : Person_AST,
-  "examples.Hierarchy" : Hierarchy_AST
+  "examples.Hierarchy" : Hierarchy_AST,
+  "examples.FixedProps" : FixedProps_AST
 };

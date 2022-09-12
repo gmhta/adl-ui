@@ -32,20 +32,21 @@ export type AcceptorsIO<I, O> = Acceptors<I, O, I, O, I, O, I, O, I, O, I, O>;
 
 export type AcceptorsU = AcceptorsIO<unknown, unknown>;
 
-export interface Visitor<I, O> {
+export interface Visitor<I, O, A, B> {
   visit(env: I, acceptor: AcceptorsIO<I, O>): O;
+  mapping?: Mapper<A, B>;
 }
-export interface VisitorU {
-  visit(env: unknown, acceptor: AcceptorsU): unknown;
-}
+export type VisitorU = Visitor<unknown, unknown, unknown, unknown>;
 
 export interface VisitorMapped<A, B> {
   visit(env: unknown, acceptor: AcceptorsU): unknown;
-  mapping: {
-    aFromB: (b: B) => A;
-    bFromA: (a: A) => B;
-  };
+  mapping: Mapper<A, B>;
 }
+export interface Mapper<A, B> {
+  aFromB: (b: B) => A;
+  bFromA: (a: A) => B;
+}
+
 
 export type Customize = (ctx: CustomContext) => AcceptorsU | null;
 
@@ -130,9 +131,9 @@ export function createVisitor0(
         const mappedVistor = {
           ...maybeEditor,
           mapping: {
-            aFromB: maybeFromNullable,
-            bFromA: nullableFromMaybe,
-          }
+            aFromB: nullableFromMaybe,
+            bFromA: maybeFromNullable,
+          } as Mapper<unknown, unknown>
         };
         return mappedVistor;
         // return mappedVEditor(maybeEditor, maybeFromNullable, nullableFromMaybe);
@@ -149,7 +150,7 @@ export function createVisitor0(
       type MapType = systypes.MapEntry<string, unknown>[];
       interface StringMapType { [key: string]: unknown; }
       const valueType = adlTree.typeExpr.parameters[0];
-      const underlyingVEditor = mapEntryVectorVisitor(declResolver, ctx, adlrt.texprString(), { value: valueType }, customize);
+      const underlyingVisitor = mapEntryVectorVisitor(declResolver, ctx, adlrt.texprString(), { value: valueType }, customize);
       const stringMapFromMap = (m: MapType): StringMapType => {
         const result: StringMapType = {};
         for (const me of m) {
@@ -161,19 +162,17 @@ export function createVisitor0(
         return Object.keys(m).map(k => ({ key: k, value: m[k] }));
       };
       const mappedVistor = {
-        ...underlyingVEditor,
+        ...underlyingVisitor,
         mapping: {
-          aFromB: mapFromStringMap,
-          bFromA: stringMapFromMap,
-        }
+          aFromB: stringMapFromMap,
+          bFromA: mapFromStringMap,
+        } as Mapper<unknown, unknown>
       };
       return mappedVistor;
   }
 }
 
-// Create an editor over a Vector<MapEntry<K,V>>. This won't be required after
-// we update sys.types.Map to have that type
-export function mapEntryVectorVisitor<K, V>(
+function mapEntryVectorVisitor<K, V>(
   declResolver: adlrt.DeclResolver,
   ctx: InternalContext,
   ktype: adlrt.ATypeExpr<K>,

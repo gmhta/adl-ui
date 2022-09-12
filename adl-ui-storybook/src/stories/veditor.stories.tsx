@@ -76,7 +76,7 @@ storiesOf("VEditors", module)
     return renderVEditorStory(veditor);
   });
 function renderVEditorStory<T>(veditor: VEditor<T>, disabled?: boolean, initial?: T): JSX.Element {
-  const [state, setState] = useState<unknown>(() => initial === undefined ? veditor.initialState : veditor.stateFromValue(initial));
+  const [state, setState] = useState<unknown>(() => initial === undefined ? veditor.getInitialState() : veditor.stateFromValue(initial));
   const errs = veditor.validate(state);
   const elements = veditor.render(state, disabled || false, e => setState((s: unknown) => veditor.update(s, e)));
   console.log(errs);

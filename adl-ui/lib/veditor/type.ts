@@ -1,7 +1,8 @@
 import { FieldFns } from "../fields/type";
-import { StructDescriptor } from "./structVEditor";
-import { UnionDescriptor } from "./unionVEditor";
 import * as adlast from "../../adl-gen/sys/adlast";
+import { SelectState } from "../select";
+import * as adlrt from "../../adl-gen/runtime/adl";
+import { StructDescriptor, UnionDescriptor } from "./adl-visitors";
 
 // export interface IVEditorState<T, S, E> {
 //   // Construct the state for an editor with current value T
@@ -23,13 +24,6 @@ import * as adlast from "../../adl-gen/sys/adlast";
 //    T: the type of value being edited
 //    S: the type of state required for editing
 //    E: the type of events
-
-export interface Visitor<I, O> {
-  visit(env: I, acceptor: AcceptorsIO<I, O>): O;
-}
-export interface VisitorU {
-  visit(env: unknown, acceptor: AcceptorsU): unknown;
-}
 
 export interface IVEditor<T, S, E> {
   getInitialState(): S;
@@ -86,3 +80,74 @@ export type AcceptorsU = AcceptorsIO<unknown, unknown>;
 export interface AcceptUnimplementedProps {
   typeExpr: adlast.TypeExpr;
 }
+
+export interface CustomContext {
+  declResolver: adlrt.DeclResolver;
+  scopedDecl: adlast.ScopedDecl | null;
+  field: adlast.Field | null;
+  typeExpr: adlast.TypeExpr;
+}
+
+
+export interface Factory {
+  getCustomVEditor(ctx: CustomContext): UVEditor | null;
+  getCustomField(ctx: CustomContext): FieldFns<unknown> | null;
+
+  renderFieldEditor(props: FieldEditorProps): Rendered;
+  renderStructEditor(props: StructEditorProps): Rendered;
+  renderUnionEditor(props: UnionEditorProps): Rendered;
+  renderVoidEditor(): Rendered;
+  renderNullableEditor?(props: FieldEditorProps): Rendered;
+
+  renderUnimplementedEditor(props: UnimplementedEditorProps): Rendered;
+}
+
+
+// interface AcceptVEditorProps<T, S, E> {
+//   veditor: IVEditor<T, S, E>;
+//   state: S;
+//   // onUpdate: (e: E) => void;
+// }
+
+
+export interface FieldEditorProps {
+  fieldfns: FieldFns<unknown>;
+  disabled: boolean;
+  state: string;
+  onUpdate: UpdateFn<string>;
+};
+
+export interface StructEditorProps {
+  fields: StructFieldProps[];
+  disabled: boolean;
+}
+
+export interface StructFieldProps {
+  name: string;
+  label: string;
+  veditor: VEditorProps<unknown, unknown, unknown>;
+}
+
+export interface UnionEditorProps {
+  selectState: SelectState,
+  veditor: VEditorProps<unknown, unknown, unknown> | null;
+  disabled: boolean;
+}
+
+export interface VEditorProps<T, S, E> {
+  veditor: IVEditor<T, S, E>;
+  state: S;
+  onUpdate: (e: E) => void;
+}
+
+
+export interface UnimplementedEditorProps {
+  typeExpr: adlast.TypeExpr;
+}
+
+export interface InternalContext {
+  scopedDecl: adlast.ScopedDecl | null;
+  field: adlast.Field | null;
+}
+
+export const nullContext = { scopedDecl: null, field: null };

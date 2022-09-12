@@ -1,7 +1,7 @@
 import * as adltree from "../adl-tree";
 import { FieldFns } from "../fields/type";
 import { adlPrimitiveFieldFns } from "../fields/adl";
-import { CustomContext, Factory } from "./adlfactory";
+import { CustomContext, Factory } from "./type";
 
 export function createField(
   adlTree: adltree.AdlTree,
