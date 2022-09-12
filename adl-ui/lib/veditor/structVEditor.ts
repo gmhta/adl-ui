@@ -3,16 +3,16 @@ import { createJsonBinding, JsonBinding } from '../../adl-gen/runtime/json';
 import { Maybe } from "../../adl-gen/sys/types";
 import * as adltree from "../adl-tree";
 import { IVEditor, UVEditor, UpdateFn, Rendered, AcceptorsIO } from "./type";
-import { Factory, createVEditor0, nullContext, fieldLabel, StructFieldProps } from "./adlfactory";
+import { Factory, createVEditor0, nullContext, StructFieldProps } from "./adlfactory";
+import { fieldLabel } from "./fieldLabel";
 import { getInitialState, render, stateFromValue, update, validate, valueFromState } from "./state-value-transforms";
 
 
-interface StructFieldStates {
-  [key: string]: unknown;
-}
-
 export interface StructState {
   fieldStates: StructFieldStates;
+}
+interface StructFieldStates {
+  [key: string]: unknown;
 }
 
 interface StructFieldEvent {
@@ -39,9 +39,12 @@ export function structVEditor(
   declResolver: adlrt.DeclResolver,
   struct: adltree.Struct): IVEditor<unknown, StructState, StructEvent> {
   const structDesc: FieldDetails[] = struct.fields.map((field, index) => {
-    const veditor = createVEditor0(declResolver, nullContext, field.adlTree, factory);
     const jsonBinding = createJsonBinding<unknown>(declResolver, { value: field.adlTree.typeExpr });
-
+    const ctx = {
+      scopedDecl: { moduleName: struct.moduleName, decl: struct.astDecl },
+      field: field.astField
+    };
+    const veditor = createVEditor0(declResolver, ctx, field.adlTree, factory);
     return {
       name: field.astField.name,
       index,
@@ -70,7 +73,7 @@ export function structVEditor(
         fd.jsonBinding.fromJsonE(fd.default.value)
       );
     } else {
-      initialState.fieldStates[fd.name] = fd.veditor.initialState;
+      initialState.fieldStates[fd.name] = fd.veditor.getInitialState();
     }
   }
 

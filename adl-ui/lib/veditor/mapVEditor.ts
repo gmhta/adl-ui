@@ -6,7 +6,13 @@ import { InternalContext, Factory, createVEditor0 } from "./adlfactory";
 
 // Create an editor over a Vector<Pair<K,V>>. This won't be required after
 // we update sys.types.Map to have that type
-export function mapVEditor<K, V>(declResolver: adlrt.DeclResolver, ctx: InternalContext, factory: Factory, ktype: adlrt.ATypeExpr<K>, vtype: adlrt.ATypeExpr<V>): IVEditor<systypes.Pair<K, V>[], unknown, unknown> {
+export function mapVEditor<K, V>(
+  declResolver: adlrt.DeclResolver,
+  ctx: InternalContext,
+  factory: Factory,
+  ktype: adlrt.ATypeExpr<K>,
+  vtype: adlrt.ATypeExpr<V>,
+): IVEditor<systypes.Pair<K, V>[], unknown, unknown> {
   const map1 = (m: systypes.Pair<K, V>[]): systypes.MapEntry<K, V>[] => {
     return m.map(p => ({ key: p.v1, value: p.v2 }));
   };
@@ -22,7 +28,12 @@ export function mapVEditor<K, V>(declResolver: adlrt.DeclResolver, ctx: Internal
 
 // Create an editor over a Vector<MapEntry<K,V>>. This won't be required after
 // we update sys.types.Map to have that type
-export function mapEntryVectorVEditor<K, V>(declResolver: adlrt.DeclResolver, ctx: InternalContext, factory: Factory, ktype: adlrt.ATypeExpr<K>, vtype: adlrt.ATypeExpr<V>): IVEditor<systypes.MapEntry<K, V>[], unknown, unknown> {
+export function mapEntryVectorVEditor<K, V>(
+  declResolver: adlrt.DeclResolver,
+  ctx: InternalContext, factory: Factory,
+  ktype: adlrt.ATypeExpr<K>,
+  vtype: adlrt.ATypeExpr<V>
+): IVEditor<systypes.MapEntry<K, V>[], unknown, unknown> {
   type MapType = systypes.MapEntry<K, V>[];
   const mapTypeExpr: adlrt.ATypeExpr<MapType> = adlrt.texprVector(systypes.texprMapEntry(ktype, vtype));
   const mapAdlTree = adltree.createAdlTree(mapTypeExpr.value, declResolver);
@@ -43,8 +54,7 @@ export function mappedVEditor<A, B, S, E>(
 
 
   return {
-    initialState: veditor.initialState,
-    getInitialState: () => veditor.initialState,
+    getInitialState: () => veditor.getInitialState(),
     stateFromValue: (b: B) => veditor.stateFromValue(aFromB(b)),
     validate: veditor.validate,
     valueFromState: (s: S) => bFromA(veditor.valueFromState(s)),

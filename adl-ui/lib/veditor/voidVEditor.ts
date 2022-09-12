@@ -8,7 +8,6 @@ export function voidVEditor(factory: Factory): IVEditor<null, null, null> {
   }
 
   return {
-    initialState: null,
     getInitialState: () => null,
     stateFromValue: () => null,
     validate: () => [],

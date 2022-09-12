@@ -2,7 +2,8 @@ import * as adlrt from "../../adl-gen/runtime/adl";
 import * as adltree from "../adl-tree";
 import { IVEditor, AcceptorsIO, UpdateFn, Rendered } from "./type";
 import { SelectState } from "../select";
-import { Factory, fieldLabel, createVEditor0, VEditorProps } from "./adlfactory";
+import { Factory, createVEditor0, VEditorProps } from "./adlfactory";
+import { fieldLabel } from "./fieldLabel";
 import { getInitialState, render, stateFromValue, update, validate, valueFromState } from "./state-value-transforms";
 
 export interface UnionState {

@@ -27,11 +27,11 @@ import * as adlast from "../../adl-gen/sys/adlast";
 export interface Visitor<I, O> {
   visit(env: I, acceptor: AcceptorsIO<I, O>): O;
 }
+export interface VisitorU {
+  visit(env: unknown, acceptor: AcceptorsU): unknown;
+}
 
 export interface IVEditor<T, S, E> {
-  // The state for an empty editor
-  initialState: S;
-
   getInitialState(): S;
 
   // Construct the state for an editor with current value T
@@ -47,8 +47,6 @@ export interface IVEditor<T, S, E> {
 
   // Returns a copy of the state, updated to reflect the given event
   update(state: S, event: E): S;
-
-  visit<I,O>(env: I, acceptor: AcceptorsIO<I, O>): O;
 
   // Render the editor's current state as a UI.
   render(state: S, disabled: boolean, onUpdate: UpdateFn<E>): Rendered;

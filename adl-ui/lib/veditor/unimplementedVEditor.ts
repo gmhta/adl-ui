@@ -9,7 +9,6 @@ export function unimplementedVEditor(factory: Factory, typeExpr: adlast.TypeExpr
   }
 
   return {
-    initialState: null,
     getInitialState: () => null,
     stateFromValue: () => null,
     validate: () => [],

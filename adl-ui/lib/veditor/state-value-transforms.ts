@@ -1,9 +1,11 @@
 import { FieldFns } from "../fields/type";
 import {
   Acceptors,
+  AcceptorsIO,
   AcceptorsIsO,
   AcceptorsOsIs,
   AcceptUnimplementedProps,
+  IVEditor,
   Rendered,
   UpdateFn,
 } from "./type";
@@ -17,6 +19,34 @@ export type TandErrors<T> = {
   errors: string[];
   value: T | undefined;
 };
+
+// export function makeVEditor<T>(visitor: Visitor<unknown, unknown>, factory: Factory): IVEditor<T, unknown, unknown> {
+//   return {
+//     // The state for an empty editor
+//     initialState: null,
+
+//     getInitialState: () => getInitialState(visitor),
+
+//     // Construct the state for an editor with current value T
+//     stateFromValue: (value: T): unknown => stateFromValue(visitor, value),
+
+//     // Check whether the current state can produce a T. Return
+//     // a list of errors.
+//     validate: (state: unknown): string[] => validate(visitor, state),
+
+//     // If valid, construct a value of type T representing the current
+//     // value
+//     valueFromState: (state: unknown): T => valueFromState(visitor, state),
+
+//     // Returns a copy of the state, updated to reflect the given event
+//     update: (state: unknown, event: unknown): unknown => update(visitor, state, event),
+
+//     visit: (env: unknown, acceptor: AcceptorsIO<unknown, unknown>): unknown => visitor.visit(env, acceptor),
+
+//     // Render the editor's current state as a UI.
+//     render: (state: unknown, disabled: boolean, onUpdate: UpdateFn<unknown>): Rendered => render(visitor, factory, state, disabled, onUpdate),
+//   };
+// }
 
 export function getInitialState<S>(veditor0: Visitor<void, unknown>): S {
   const acceptor: Acceptors<
@@ -45,7 +75,7 @@ export function getInitialState<S>(veditor0: Visitor<void, unknown>): S {
             fd.jsonBinding.fromJsonE(fd.default.value)
           );
         } else {
-          initialState.fieldStates[fd.name] = fd.veditor.initialState;
+          initialState.fieldStates[fd.name] = fd.veditor.getInitialState();
         }
       }
       return initialState;
@@ -180,7 +210,8 @@ export function valueFromState<T, S>(veditor: Visitor<unknown, unknown>, vstate:
     acceptStruct: (state: StructState, structDesc: StructDescriptor): Record<string, unknown> => {
       const value: Record<string, unknown> = {};
       for (const fd of structDesc) {
-        value[fd.name] = fd.veditor.valueFromState(state.fieldStates[fd.name]);
+        value[fd.name] = fd.veditor.visit(state.fieldStates[fd.name], acceptor);
+        // value[fd.name] = fd.veditor.valueFromState(state.fieldStates[fd.name]);
       }
       return value;
     },
@@ -254,7 +285,7 @@ export function update<S, E>(veditor: Visitor<unknown, unknown>, state: S, event
         const field = event.field;
         const newFieldStates = { ...state.fieldStates };
         if (field && !newFieldStates[field]) {
-          newFieldStates[field] = unionDesc[field].veditor().initialState;
+          newFieldStates[field] = unionDesc[field].veditor().getInitialState();
         }
         return {
           currentField: event.field,

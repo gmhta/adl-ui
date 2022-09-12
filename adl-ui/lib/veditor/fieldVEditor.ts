@@ -14,7 +14,6 @@ export function fieldVEditor<T>(factory: Factory, _typeExpr: adlast.TypeExpr, fi
   }
 
   const veditor: IVEditor<T, string, string> = {
-    initialState: "",
     getInitialState: () => "",
     stateFromValue: fieldfns.toText,
     validate,

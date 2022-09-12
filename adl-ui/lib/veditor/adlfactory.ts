@@ -17,6 +17,7 @@ import { mapVEditor, mappedVEditor, mapEntryVectorVEditor } from "./mapVEditor";
 import { UnionDescriptor, UnionState, unionVEditor } from "./unionVEditor";
 import { StructDescriptor, structVEditor } from "./structVEditor";
 import { fieldVEditor } from "./fieldVEditor";
+import { isMaybe, maybeFromNullable, nullableFromMaybe } from "./maybe-utils";
 
 /**
  * Construct a VEditor from a a specified ADL type
@@ -220,24 +221,6 @@ export type VField = {
 };
 
 
-// Convert snake/camel case to human readable spaced name
-export function fieldLabel(name: string): string {
-  return (
-    name
-      // insert a space before all caps
-      .replace(/([A-Z])/g, " $1")
-      // uppercase the first character
-      .replace(/^./, function (str) {
-        return str.toUpperCase();
-      })
-      // replace _ with space
-      .replace(/_/g, " ")
-  );
-}
-
-
-
-
 function createFieldForTParam0(
   adlTree: adltree.AdlTree,
   ctx: CustomContext,
@@ -266,29 +249,3 @@ function isEnum(fields: adltree.Field[]): boolean {
   return true;
 }
 
-function isMaybe(typeExpr: adlast.TypeExpr): boolean {
-  if (typeExpr.typeRef.kind === "reference") {
-    return (
-      typeExpr.typeRef.value.moduleName === "sys.types" && typeExpr.typeRef.value.name === "Maybe"
-    );
-  }
-  return false;
-}
-
-function maybeFromNullable<T>(value: T | null): systypes.Maybe<T> {
-  if (value === null) {
-    return { kind: 'nothing' };
-  } else {
-    return { kind: 'just', value };
-  }
-}
-
-// This function only works for types T which don't have null as
-// a value.
-function nullableFromMaybe<T>(value: systypes.Maybe<T>): T | null {
-  if (value.kind === 'just') {
-    return value.value;
-  } else {
-    return null;
-  }
-}
