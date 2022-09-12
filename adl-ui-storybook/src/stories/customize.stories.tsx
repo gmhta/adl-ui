@@ -7,6 +7,7 @@ import {
   FieldEditorProps,
   makeAdlMapper,
   makeOverride,
+  makeRenderStructField,
   makeVEditor,
   Rendered,
   StructDescriptor,
@@ -37,18 +38,7 @@ storiesOf("Overrides & Mappers", module)
                 if (typeExprsEqual(adlex.texprDisplay().value, structDesc.texpr.value) && fd.name === "model") {
                   return [];
                 }
-                const veditor = makeVEditor(fd.visitor, VEDITOR_FACTORY);
-                return [{
-                  name: fd.name,
-                  label: fd.label,
-                  veditor: {
-                    veditor,
-                    state: state.fieldStates[fd.name],
-                    onUpdate: event => {
-                      onUpdate({ kind: "field", field: fd.name, fieldEvent: event });
-                    }
-                  }
-                }];
+                return [makeRenderStructField(fd, VEDITOR_FACTORY, state, onUpdate)]
               });
               return VEDITOR_FACTORY.renderStructEditor({ fields, disabled });
             }

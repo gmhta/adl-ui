@@ -9,6 +9,7 @@ import {
   AcceptorsOsIs,
   AdlTypeMapper,
   FieldDescriptor,
+  FieldDetails,
   Override,
   StructDescriptor,
   UnionDescriptor,
@@ -411,18 +412,7 @@ export function render<S, E>(veditor: VisitorU, factory: Factory, state0: S, dis
     acceptStruct: function (env: RP<StructState, StructEvent>, structDesc: StructDescriptor): Rendered {
       const { state, disabled, onUpdate } = env;
       const fields: StructFieldProps[] = structDesc.fieldDetails.map(fd => {
-        const veditor = makeVEditor(fd.visitor, factory);
-        return {
-          name: fd.name,
-          label: fd.label,
-          veditor: {
-            veditor,
-            state: state.fieldStates[fd.name],
-            onUpdate: event => {
-              onUpdate({ kind: "field", field: fd.name, fieldEvent: event });
-            }
-          }
-        };
+        return makeRenderStructField(fd, factory, state, onUpdate);
       }
       );
       return factory.renderStructEditor({ fields, disabled });
@@ -475,6 +465,21 @@ export function render<S, E>(veditor: VisitorU, factory: Factory, state0: S, dis
     }
   };
   return veditor.visit("render", { state: state0, disabled: disabled0, onUpdate: onUpdate0 }, renderAcceptor) as Rendered;
+}
+
+export function makeRenderStructField(fd: FieldDetails, factory: Factory, state: StructState, onUpdate: UpdateFn<StructFieldEvent>): StructFieldProps {
+  const veditor = makeVEditor(fd.visitor, factory);
+  return {
+    name: fd.name,
+    label: fd.label,
+    veditor: {
+      veditor,
+      state: state.fieldStates[fd.name],
+      onUpdate: event => {
+        onUpdate({ kind: "field", field: fd.name, fieldEvent: event });
+      }
+    }
+  };
 }
 
 export function getInitialState<S>(veditor0: Visitor<void, unknown>): S {
