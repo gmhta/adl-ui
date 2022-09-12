@@ -21,6 +21,7 @@ struct Person {
 
 struct Hierarchy {
   Person leader;
+  Nullable<String> testNullMap;
   Vector<Hierarchy> underlings;
   FixedProps fixedProps;
   StringMap<String> properties;

@@ -1,13 +1,15 @@
 import * as adlrt from "../../adl-gen/runtime/adl";
 import { SelectState } from "../select";
 import {
+  createVisitor
+} from "./adl-visitors";
+import {
   Acceptors, AcceptorsIsO,
-  AcceptorsOsIs, AcceptUnimplementedProps,
-  createVisitor, CustomContext, Customize,
+  AcceptorsOsIs,
   FieldDescriptor,
   StructDescriptor, UnionDescriptor, Visitor, VisitorU
-} from "./adl-visitors";
-import { Factory, IVEditor, Rendered, StructFieldProps, UpdateFn, VEditorProps } from "./type";
+} from "./type";
+import { AcceptUnimplementedProps, Factory, IVEditor, Rendered, StructFieldProps, UpdateFn, VEditorProps } from "./type";
 
 export type TandErrors<T> = {
   errors: string[];
@@ -18,36 +20,17 @@ export function createVEditor<T>(
   typeExpr: adlrt.ATypeExpr<T>,
   declResolver: adlrt.DeclResolver,
   factory: Factory,
-  customize?: Customize
 ) {
-  const customize0 = customize ? customize : (ctx: CustomContext) => null;
-  const visitor = createVisitor(typeExpr, declResolver, customize0);
+  const visitor = createVisitor(typeExpr, declResolver);
   return makeVEditor(visitor, factory);
 }
 
 export function makeVEditor<T>(visitor: VisitorU, factory: Factory): IVEditor<T, unknown, unknown> {
   return {
     getInitialState: () => getInitialState(visitor),
-    stateFromValue: (value: T): unknown => {
-      if (visitor.mapping) {
-        console.log("mapping::stateFromValue")
-        console.log("  a.", value)
-        console.log("  b.", visitor.mapping.bFromA(value))
-        return stateFromValue(visitor, visitor.mapping.bFromA(value));
-      }
-      return stateFromValue(visitor, value);
-    },
+    stateFromValue: (value: T): unknown => stateFromValue(visitor, value),
     validate: (state: unknown): string[] => validate(visitor, state),
-    valueFromState: (state: unknown): T => {
-      const value = valueFromState(visitor, state);
-      if (visitor.mapping) {
-        console.log("mapping::valueFromState")
-        console.log("  b.", value)
-        console.log("  a.", visitor.mapping.aFromB(value))
-        return visitor.mapping.aFromB(value) as T;
-      }
-      return value as T;
-    },
+    valueFromState: (state: unknown): T => valueFromState(visitor, state),
     update: (state: unknown, event: unknown): unknown => update(visitor, state, event),
     render: (state: unknown, disabled: boolean, onUpdate: UpdateFn<unknown>): Rendered => render(visitor, factory, state, disabled, onUpdate),
   };
@@ -95,12 +78,15 @@ export interface SomeUnion {
 const stateFromValueAcceptor: Acceptors<
   unknown, string,
   Record<string, unknown>, StructState,
-  SomeUnion, UnionState,
+  SomeUnion | unknown, UnionState,
   unknown, unknown,
   unknown, unknown,
   unknown, unknown
 > = {
   acceptField: (value: unknown, fieldDesc: FieldDescriptor): string => {
+    if (fieldDesc.mapper) {
+      return fieldDesc.fieldfns.toText(fieldDesc.mapper.bFromA(value));
+    }
     return fieldDesc.fieldfns.toText(value);
   },
   acceptStruct: (value: Record<string, unknown>, structDesc: StructDescriptor): StructState => {
@@ -112,19 +98,25 @@ const stateFromValueAcceptor: Acceptors<
     }
     return state;
   },
-  acceptUnion: function (uvalue: SomeUnion, unionDesc: UnionDescriptor): UnionState {
+  acceptUnion: function (value0: SomeUnion | unknown, unionDesc: UnionDescriptor): UnionState {
+    let uvalue = {} as SomeUnion;
+    if (unionDesc.mapper) {
+      uvalue = unionDesc.mapper.bFromA(value0) as SomeUnion;
+    } else {
+      uvalue = value0 as SomeUnion;
+    }
     const kind = uvalue.kind;
     if (!kind) {
       throw new Error("union must have kind field");
     }
     const value = uvalue.value === undefined ? null : uvalue.value;
-    if (!unionDesc[kind]) {
+    if (!unionDesc.branchDetails[kind]) {
       throw new Error("union with invalid kind field");
     }
     return {
       currentField: kind,
       selectActive: false,
-      fieldStates: { [kind]: unionDesc[kind].visitor().visit(value, stateFromValueAcceptor) }
+      fieldStates: { [kind]: unionDesc.branchDetails[kind].visitor().visit(value, stateFromValueAcceptor) }
     };
   },
   acceptVoid: function (env: unknown): unknown {
@@ -134,7 +126,8 @@ const stateFromValueAcceptor: Acceptors<
     throw new Error("Function not implemented.");
   },
   acceptUnimplemented: function (stackState: unknown, props: AcceptUnimplementedProps): unknown {
-    throw new Error("Function not implemented.");
+    return null;
+    // throw new Error("Function not implemented.");
   }
 };
 
@@ -185,7 +178,7 @@ const getInitialStateAcceptor: Acceptors<
   }
 };
 
-export function getInitialState<S>(veditor0: Visitor<void, unknown, unknown, unknown>): S {
+export function getInitialState<S>(veditor0: Visitor<void, unknown>): S {
   return veditor0.visit(undefined, getInitialStateAcceptor) as S;
 }
 
@@ -218,10 +211,10 @@ export function validate<S>(veditor0: VisitorU, vstate: S): string[] {
       if (kind === null) {
         return ["selection required"];
       }
-      if (!unionDesc[kind]) {
+      if (!unionDesc.branchDetails[kind]) {
         throw new Error("union with invalid kind field");
       }
-      const result = unionDesc[kind].visitor().visit(state.fieldStates[kind], acceptor) as string[];
+      const result = unionDesc.branchDetails[kind].visitor().visit(state.fieldStates[kind], acceptor) as string[];
       return result;
     },
     acceptVoid: function (env: undefined): string[] {
@@ -249,12 +242,15 @@ export function valueFromState<T, S>(veditor: VisitorU, vstate: S): T {
   const acceptor: AcceptorsOsIs<
     unknown, string,
     Record<string, unknown>, StructState,
-    SomeUnion, UnionState,
+    SomeUnion | unknown, UnionState,
     unknown, unknown,
     unknown, unknown,
     unknown, unknown
   > = {
     acceptField: (state: string, fieldDesc: FieldDescriptor): unknown => {
+      if (fieldDesc.mapper) {
+        return fieldDesc.mapper.aFromB(fieldDesc.fieldfns.fromText(state));
+      }
       return fieldDesc.fieldfns.fromText(state);
     },
     acceptStruct: (state: StructState, structDesc: StructDescriptor): Record<string, unknown> => {
@@ -264,12 +260,15 @@ export function valueFromState<T, S>(veditor: VisitorU, vstate: S): T {
       }
       return value;
     },
-    acceptUnion: (state: UnionState, unionDesc: UnionDescriptor): SomeUnion => {
+    acceptUnion: (state: UnionState, unionDesc: UnionDescriptor): SomeUnion | unknown => {
       const kind = state.currentField;
       if (kind === null) {
         throw new Error("BUG: union valueFromState called on invalid state");
       }
-      const value = unionDesc[kind].visitor().visit(state.fieldStates[kind], acceptor);
+      const value = unionDesc.branchDetails[kind].visitor().visit(state.fieldStates[kind], acceptor);
+      if (unionDesc.mapper) {
+        return unionDesc.mapper.aFromB({ kind, value });
+      }
       return { kind, value };
     },
     acceptVoid: (env: unknown): unknown => {
@@ -279,7 +278,7 @@ export function valueFromState<T, S>(veditor: VisitorU, vstate: S): T {
       throw new Error("Function not implemented.");
     },
     acceptUnimplemented: (env: unknown, props: AcceptUnimplementedProps): unknown => {
-      throw new Error("Function not implemented.");
+      return "";
     }
   };
 
@@ -334,7 +333,7 @@ export function update<S, E>(veditor: VisitorU, state: S, event: E): S {
         const field = event.field;
         const newFieldStates = { ...state.fieldStates };
         if (field && !newFieldStates[field]) {
-          newFieldStates[field] = unionDesc[field].visitor().visit(undefined, getInitialStateAcceptor);
+          newFieldStates[field] = unionDesc.branchDetails[field].visitor().visit(undefined, getInitialStateAcceptor);
         }
         return {
           currentField: event.field,
@@ -347,7 +346,7 @@ export function update<S, E>(veditor: VisitorU, state: S, event: E): S {
           throw new Error("BUG: union update received when current field not set");
         }
         const newFieldStates = { ...state.fieldStates };
-        newFieldStates[field] = unionDesc[field].visitor().visit({
+        newFieldStates[field] = unionDesc.branchDetails[field].visitor().visit({
           state: newFieldStates[field],
           event: event.event,
         }, acceptor);
@@ -410,21 +409,21 @@ export function render<S, E>(veditor: VisitorU, factory: Factory, state0: S, dis
       const { state, disabled, onUpdate } = env;
       let current: number | null = null;
       if (state.currentField) {
-        current = unionDesc[state.currentField] ? unionDesc[state.currentField].index : null;
+        current = unionDesc.branchDetails[state.currentField] ? unionDesc.branchDetails[state.currentField].index : null;
       }
 
       const name = (i: number) => {
-        const k = Object.keys(unionDesc).find(k => unionDesc[k].index === i);
+        const k = Object.keys(unionDesc.branchDetails).find(k => unionDesc.branchDetails[k].index === i);
         if (!k) {
           throw Error("no branch with this index" + i);
         }
-        return unionDesc[k].name;
+        return unionDesc.branchDetails[k].name;
       };
 
       const selectState: SelectState = {
         current,
         active: state.selectActive,
-        choices: Object.keys(unionDesc).map(k => unionDesc[k].label),
+        choices: Object.keys(unionDesc.branchDetails).map(k => unionDesc.branchDetails[k].label),
         onClick: () => onUpdate({ kind: "toggleActive" }),
         onChoice: (i: number | null) => {
           onUpdate({ kind: "toggleActive" });
@@ -435,7 +434,7 @@ export function render<S, E>(veditor: VisitorU, factory: Factory, state0: S, dis
       let veditor: VEditorProps<unknown, unknown, unknown> | null = null;
       if (state.currentField) {
         veditor = {
-          veditor: makeVEditor(unionDesc[state.currentField].visitor(), factory),
+          veditor: makeVEditor(unionDesc.branchDetails[state.currentField].visitor(), factory),
           state: state.fieldStates[state.currentField],
           onUpdate: event => onUpdate({ kind: "update", event })
         };

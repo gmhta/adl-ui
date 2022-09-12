@@ -9,80 +9,27 @@ import { adlPrimitiveFieldFns, maybeField, nullableField } from "../fields/adl";
 import { FieldFns } from "../fields/type";
 import { fieldLabel } from "./fieldLabel";
 import { isMaybe, maybeFromNullable, nullableFromMaybe } from "./maybe-utils";
-
-export interface AcceptUnimplementedProps {
-  typeExpr: adlast.TypeExpr;
-}
-
-export interface Acceptors<FI, FO, SI, SO, UI, UO, VI, VO, AI, AO, XI, XO> {
-  acceptField(env: FI, fieldDesc: FieldDescriptor): FO;
-  acceptStruct(env: SI, structDesc: StructDescriptor): SO;
-  acceptUnion(env: UI, unionDesc: UnionDescriptor): UO;
-  acceptVoid(env: VI): VO;
-  acceptVector(env: AI, desc: StructDescriptor | UnionDescriptor): AO;
-  acceptUnimplemented(env: XI, props: AcceptUnimplementedProps): XO;
-}
-
-export type AcceptorsOsIs<FI, FO, SI, SO, UI, UO, VI, VO, AI, AO, XI, XO> =
-  Acceptors<FO, FI, SO, SI, UO, UI, VO, VI, AO, AI, XO, XI>;
-
-export type AcceptorsIsO<FI, SI, UI, VI, AI, XI, O> = Acceptors<FI, O, SI, O, UI, O, VI, O, AI, O, XI, O>;
-
-export type AcceptorsIO<I, O> = Acceptors<I, O, I, O, I, O, I, O, I, O, I, O>;
-
-export type AcceptorsU = AcceptorsIO<unknown, unknown>;
-
-export interface Visitor<I, O, A, B> {
-  visit(env: I, acceptor: AcceptorsIO<I, O>): O;
-  mapping?: Mapper<A, B>;
-}
-export type VisitorU = Visitor<unknown, unknown, unknown, unknown>;
-
-export interface VisitorMapped<A, B> {
-  visit(env: unknown, acceptor: AcceptorsU): unknown;
-  mapping: Mapper<A, B>;
-}
-export interface Mapper<A, B> {
-  aFromB: (b: B) => A;
-  bFromA: (a: A) => B;
-}
-
-
-export type Customize = (ctx: CustomContext) => AcceptorsU | null;
-
-export type CustomContext = CustomContextField | CustomContextStruct;
-type CustomContextField = {
-  kind: "field";
-};
-type CustomContextStruct = {
-  kind: "struct";
-};
-
-export interface InternalContext {
-  scopedDecl: adlast.ScopedDecl | null;
-  field: adlast.Field | null;
-}
+import { AcceptorsIO, AcceptorsU, AcceptUnimplementedProps, FieldDetails, InternalContext, Mapper, UnionDescriptor, VisitorU } from "./type";
 
 export const nullContext = { scopedDecl: null, field: null };
 
 export function createVisitor<T>(
   typeExpr: adlrt.ATypeExpr<T>,
   declResolver: adlrt.DeclResolver,
-  customize: Customize
 ): VisitorU {
   const adlTree = adltree.createAdlTree(typeExpr.value, declResolver);
-  return createVisitor0(declResolver, nullContext, adlTree, customize);
+  return createVisitor0(declResolver, nullContext, adlTree, undefined);
 }
 
 export function createVisitor0(
   declResolver: adlrt.DeclResolver,
   ctx: InternalContext,
   adlTree: adltree.AdlTree,
-  customize: Customize,
+  mapper?: Mapper<unknown, unknown>,
 ): VisitorU {
   const details = adlTree.details();
   switch (details.kind) {
-    case "primitive":
+    case "primitive": {
       if (details.ptype === "Void") {
         return voidVisitor();
       } else {
@@ -90,22 +37,21 @@ export function createVisitor0(
         if (fldfns === null) {
           return unimplementedVisitor(adlTree.typeExpr);
         }
-        return fieldVisitor(fldfns/* factory, adlTree.typeExpr */);
+        return fieldVisitor(fldfns, mapper/* factory, adlTree.typeExpr */);
       }
-
-    case "struct": {
-      return structVisitor(declResolver, details, customize);
     }
-
-    case "newtype":
+    case "struct": {
+      return structVisitor(declResolver, details)//, mapper);
+    }
+    case "newtype": {
       // if (adlTree.typeExpr.typeRef.kind === 'reference' && scopedNamesEqual(systypes.snMap, adlTree.typeExpr.typeRef.value)) {
       //   return mapVEditor(declResolver, nullContext, factory, { value: adlTree.typeExpr.parameters[0] }, { value: adlTree.typeExpr.parameters[1] });
       // }
-      return createVisitor0(declResolver, nullContext, details.adlTree, customize);
-
-    case "typedef":
-      return createVisitor0(declResolver, nullContext, details.adlTree, customize);
-
+      return createVisitor0(declResolver, nullContext, details.adlTree, mapper);
+    }
+    case "typedef": {
+      return createVisitor0(declResolver, nullContext, details.adlTree, mapper);
+    }
     case "union": {
       // When T can be edited in a String field, we can use a string
       // field for Maybe<T> iff the empty string is not a valid value
@@ -114,43 +60,42 @@ export function createVisitor0(
       if (isMaybe(adlTree.typeExpr)) {
         const fldfns = createFieldForTParam0(adlTree, declResolver);
         if (fldfns && fldfns.validate("") !== null) {
-          return fieldVisitor(maybeField(fldfns) /** adlTree.typeExpr */);
+          return fieldVisitor(maybeField(fldfns), mapper /** adlTree.typeExpr */);
         }
       }
-      return unionVisitor(declResolver, adlTree, details, customize);
+      return unionVisitor(declResolver, adlTree, details, mapper);
     }
 
-    case "nullable":
+    case "nullable": {
       const fieldfns = createFieldForTParam0(adlTree, declResolver);
       if (fieldfns !== null && fieldfns.validate("") !== null) {
-        return fieldVisitor(nullableField(fieldfns)/**factory, adlTree.typeExpr, */);
+        return fieldVisitor(nullableField(fieldfns), mapper/**factory, adlTree.typeExpr, */);
       } else {
         // Use a maybe editor for now...
         const maybeTypeExpr = systypes.texprMaybe({ value: details.param.typeExpr });
-        const maybeEditor = createVisitor(maybeTypeExpr, declResolver, customize);
-        const mappedVistor = {
-          ...maybeEditor,
-          mapping: {
-            aFromB: nullableFromMaybe,
-            bFromA: maybeFromNullable,
-          } as Mapper<unknown, unknown>
-        };
-        return mappedVistor;
+        const mapper = {
+          aFromB: nullableFromMaybe,
+          bFromA: maybeFromNullable,
+        } as Mapper<unknown, unknown>;
+        const adlTree = adltree.createAdlTree(maybeTypeExpr.value, declResolver);
+        return createVisitor0(declResolver, nullContext, adlTree, mapper);
+        // const mappedVistor = {
+        //   ...maybeEditor,
+        // };
+        // return mappedVistor;
         // return mappedVEditor(maybeEditor, maybeFromNullable, nullableFromMaybe);
       }
-
+    }
     case "vector": {
       // const _underlyingVEditor = createVEditor0(declResolver,nullContext,  details.param, factory);
       return unimplementedVisitor(adlTree.typeExpr);
     }
-
-    case "stringmap":
+    case "stringmap": {
       // An veditor over StringMap<T> is implemented in terms of
       // An veditor over sys.types.Map<String,T>
       type MapType = systypes.MapEntry<string, unknown>[];
       interface StringMapType { [key: string]: unknown; }
       const valueType = adlTree.typeExpr.parameters[0];
-      const underlyingVisitor = mapEntryVectorVisitor(declResolver, ctx, adlrt.texprString(), { value: valueType }, customize);
       const stringMapFromMap = (m: MapType): StringMapType => {
         const result: StringMapType = {};
         for (const me of m) {
@@ -161,14 +106,20 @@ export function createVisitor0(
       const mapFromStringMap = (m: StringMapType): MapType => {
         return Object.keys(m).map(k => ({ key: k, value: m[k] }));
       };
-      const mappedVistor = {
-        ...underlyingVisitor,
-        mapping: {
-          aFromB: stringMapFromMap,
-          bFromA: mapFromStringMap,
-        } as Mapper<unknown, unknown>
-      };
-      return mappedVistor;
+      const mapper = {
+        aFromB: stringMapFromMap,
+        bFromA: mapFromStringMap,
+      } as Mapper<unknown, unknown>;
+      return mapEntryVectorVisitor(declResolver, ctx, adlrt.texprString(), { value: valueType }, mapper);
+      // const mappedVistor = {
+      //   ...underlyingVisitor,
+      //   mapping: {
+      //     aFromB: stringMapFromMap,
+      //     bFromA: mapFromStringMap,
+      //   } as Mapper<unknown, unknown>
+      // };
+      // return mappedVistor;
+    }
   }
 }
 
@@ -177,12 +128,12 @@ function mapEntryVectorVisitor<K, V>(
   ctx: InternalContext,
   ktype: adlrt.ATypeExpr<K>,
   vtype: adlrt.ATypeExpr<V>,
-  customize: Customize
+  mapper: Mapper<unknown, unknown>,
 ): VisitorU {
   type MapType = systypes.MapEntry<K, V>[];
   const mapTypeExpr: adlrt.ATypeExpr<MapType> = adlrt.texprVector(systypes.texprMapEntry(ktype, vtype));
   const mapAdlTree = adltree.createAdlTree(mapTypeExpr.value, declResolver);
-  return createVisitor0(declResolver, ctx, mapAdlTree, customize);
+  return createVisitor0(declResolver, ctx, mapAdlTree, mapper);
 }
 
 
@@ -234,35 +185,19 @@ function createFieldForTParam0(
   return createField(adlTree1);
 }
 
-export type FieldDescriptor = {
-  fieldfns: FieldFns<unknown>;
-};
-
-export function fieldVisitor<T>(fieldfns: FieldFns<T>): VisitorU {
+export function fieldVisitor<T>(fieldfns: FieldFns<T>, mapper?: Mapper<unknown, unknown>): VisitorU {
   function visit(env: unknown, acceptor: AcceptorsU): unknown {
-    return acceptor.acceptField(env, { fieldfns });
+    return acceptor.acceptField(env, { mapper, fieldfns });
   }
   return {
     visit
   };
 }
 
-export type StructDescriptor = {
-  fieldDetails: FieldDetails[];
-};
-export type FieldDetails = {
-  name: string;
-  index: number;
-  default: Maybe<{} | null>;
-  jsonBinding: JsonBinding<unknown>;
-  label: string;
-  visitor: VisitorU;
-};
-
 export function structVisitor(
   declResolver: adlrt.DeclResolver,
   struct: adltree.Struct,
-  customize: Customize,
+  // mapper: MapperOption,
 ): VisitorU {
   const fieldDetails: FieldDetails[] = struct.fields.map((field, index) => {
     const jsonBinding = createJsonBinding<unknown>(declResolver, { value: field.adlTree.typeExpr });
@@ -270,7 +205,7 @@ export function structVisitor(
       scopedDecl: { moduleName: struct.moduleName, decl: struct.astDecl },
       field: field.astField
     };
-    const visitor = createVisitor0(declResolver, ctx, field.adlTree, customize);
+    const visitor = createVisitor0(declResolver, ctx, field.adlTree, undefined);
     return {
       name: field.astField.name,
       index,
@@ -290,23 +225,17 @@ export function structVisitor(
   };
 }
 
-export type UnionDescriptor = Record<string, UnionBranch>;
-
-export type UnionBranch = {
-  name: string;
-  label: string;
-  index: number;
-  visitor: () => VisitorU;
-};
-
 export function unionVisitor(
   declResolver: adlrt.DeclResolver,
   _adlTree: adltree.AdlTree,
   union: adltree.Union,
-  customize: Customize,
+  mapper?: Mapper<unknown, unknown>,
 ): VisitorU {
 
-  const unionDesc: UnionDescriptor = {};
+  const unionDesc: UnionDescriptor = {
+    branchDetails: {},
+    mapper
+  };
 
   union.fields.forEach((field, index) => {
     const formLabel = fieldLabel(field.astField.name);
@@ -314,11 +243,11 @@ export function unionVisitor(
       scopedDecl: { moduleName: union.moduleName, decl: union.astDecl },
       field: field.astField
     };
-    unionDesc[field.astField.name] = {
+    unionDesc.branchDetails[field.astField.name] = {
       name: field.astField.name,
       label: formLabel,
       index,
-      visitor: () => createVisitor0(declResolver, ctx, field.adlTree, customize)
+      visitor: () => createVisitor0(declResolver, ctx, field.adlTree, undefined)
     };
   });
 

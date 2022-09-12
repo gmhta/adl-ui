@@ -2,46 +2,23 @@ import { FieldFns } from "../fields/type";
 import * as adlast from "../../adl-gen/sys/adlast";
 import { SelectState } from "../select";
 import * as adlrt from "../../adl-gen/runtime/adl";
-import { StructDescriptor, UnionDescriptor } from "./adl-visitors";
-
-// export interface IVEditorState<T, S, E> {
-//   // Construct the state for an editor with current value T
-//   stateFromValue(value: T): S;
-//   // Check whether the current state can produce a T. Return
-//   // a list of errors.
-//   validate(state: S): string[];
-//   // If valid, construct a value of type T representing the current
-//   // value
-//   valueFromState(state: S): T;
-//   // Returns a copy of the state, updated to reflect the given event
-//   update(state: S, event: E): S;
-// }
-
-// type U = unknown;
+import { Maybe } from "../../adl-gen/sys/types";
+import { JsonBinding } from '../../adl-gen/runtime/json';
 
 // An abstract value editor
-//
 //    T: the type of value being edited
 //    S: the type of state required for editing
 //    E: the type of events
-
 export interface IVEditor<T, S, E> {
   getInitialState(): S;
-
   // Construct the state for an editor with current value T
   stateFromValue(value: T): S;
-
-  // Check whether the current state can produce a T. Return
-  // a list of errors.
+  // Check whether the current state can produce a T. Return a list of errors.
   validate(state: S): string[];
-
-  // If valid, construct a value of type T representing the current
-  // value
+  // If valid, construct a value of type T representing the current value
   valueFromState(state: S): T;
-
   // Returns a copy of the state, updated to reflect the given event
   update(state: S, event: E): S;
-
   // Render the editor's current state as a UI.
   render(state: S, disabled: boolean, onUpdate: UpdateFn<E>): Rendered;
 }
@@ -49,7 +26,6 @@ export interface IVEditor<T, S, E> {
 export interface Rendered {
   // Content to be shown beside a label
   beside?: JSX.Element;
-
   // Content to be shown indented below the label. 
   below?: JSX.Element;
 }
@@ -58,24 +34,6 @@ export type UpdateFn<E> = (e: E) => void;
 
 export type VEditor<T> = IVEditor<T, unknown, unknown>;
 export type UVEditor = VEditor<unknown>;
-
-export interface Acceptors<FI, FO, SI, SO, UI, UO, VI, VO, AI, AO, XI, XO> {
-  acceptField(env: FI, fieldfns: FieldFns<unknown>): FO;
-  acceptStruct(env: SI, structDesc: StructDescriptor): SO;
-  acceptUnion(env: UI, unionDesc: UnionDescriptor): UO;
-  acceptVoid(env: VI): VO;
-  acceptVector(env: AI, desc: StructDescriptor | UnionDescriptor): AO;
-  acceptUnimplemented(env: XI, props: AcceptUnimplementedProps): XO;
-}
-
-export type AcceptorsOsIs<FI, FO, SI, SO, UI, UO, VI, VO, AI, AO, XI, XO> = Acceptors<FO, FI, SO, SI, UO, UI, VO, VI, AO, AI, XO, XI>;
-
-export type AcceptorsIsO<FI, SI, UI, VI, AI, XI, O> = Acceptors<FI, O, SI, O, UI, O, VI, O, AI, O, XI, O>;
-
-export type AcceptorsIO<I, O> = Acceptors<I, O, I, O, I, O, I, O, I, O, I, O>;
-
-export type AcceptorsU = AcceptorsIO<unknown, unknown>;
-
 
 export interface AcceptUnimplementedProps {
   typeExpr: adlast.TypeExpr;
@@ -87,7 +45,6 @@ export interface CustomContext {
   field: adlast.Field | null;
   typeExpr: adlast.TypeExpr;
 }
-
 
 export interface Factory {
   getCustomVEditor(ctx: CustomContext): UVEditor | null;
@@ -101,14 +58,6 @@ export interface Factory {
 
   renderUnimplementedEditor(props: UnimplementedEditorProps): Rendered;
 }
-
-
-// interface AcceptVEditorProps<T, S, E> {
-//   veditor: IVEditor<T, S, E>;
-//   state: S;
-//   // onUpdate: (e: E) => void;
-// }
-
 
 export interface FieldEditorProps {
   fieldfns: FieldFns<unknown>;
@@ -140,7 +89,6 @@ export interface VEditorProps<T, S, E> {
   onUpdate: (e: E) => void;
 }
 
-
 export interface UnimplementedEditorProps {
   typeExpr: adlast.TypeExpr;
 }
@@ -150,4 +98,79 @@ export interface InternalContext {
   field: adlast.Field | null;
 }
 
-export const nullContext = { scopedDecl: null, field: null };
+
+export type FieldDescriptor = {
+  fieldfns: FieldFns<unknown>;
+  mapper?: Mapper<unknown, unknown>;
+};
+
+export type StructDescriptor = {
+  fieldDetails: FieldDetails[];
+  // mapper: Mapper<unknown, unknown> | null;
+};
+export type FieldDetails = {
+  name: string;
+  index: number;
+  default: Maybe<{} | null>;
+  jsonBinding: JsonBinding<unknown>;
+  label: string;
+  visitor: VisitorU;
+};
+
+export type UnionDescriptor = {
+  branchDetails: Record<string, UnionBranch>;
+  mapper?: Mapper<unknown, unknown>;
+};
+
+export type UnionBranch = {
+  name: string;
+  label: string;
+  index: number;
+  visitor: () => VisitorU;
+};
+
+
+
+export interface Acceptors<FI, FO, SI, SO, UI, UO, VI, VO, AI, AO, XI, XO> {
+  acceptField(env: FI, fieldDesc: FieldDescriptor): FO;
+  acceptStruct(env: SI, structDesc: StructDescriptor): SO;
+  acceptUnion(env: UI, unionDesc: UnionDescriptor): UO;
+  acceptVoid(env: VI): VO;
+  acceptVector(env: AI, desc: StructDescriptor | UnionDescriptor): AO;
+  acceptUnimplemented(env: XI, props: AcceptUnimplementedProps): XO;
+}
+
+export type AcceptorsOsIs<FI, FO, SI, SO, UI, UO, VI, VO, AI, AO, XI, XO> =
+  Acceptors<FO, FI, SO, SI, UO, UI, VO, VI, AO, AI, XO, XI>;
+
+export type AcceptorsIsO<FI, SI, UI, VI, AI, XI, O> = Acceptors<FI, O, SI, O, UI, O, VI, O, AI, O, XI, O>;
+
+export type AcceptorsIO<I, O> = Acceptors<I, O, I, O, I, O, I, O, I, O, I, O>;
+
+export type AcceptorsU = AcceptorsIO<unknown, unknown>;
+
+export interface Visitor<I, O> {
+  visit(env: I, acceptor: AcceptorsIO<I, O>): O;
+  // mapping?: Mapper<A, B>;
+}
+export type VisitorU = Visitor<unknown, unknown>;
+
+// export interface VisitorMapped<A, B> {
+//   visit(env: unknown, acceptor: AcceptorsU): unknown;
+//   mapping: Mapper<A, B>;
+// }
+export interface Mapper<A, B> {
+  aFromB: (b: B) => A;
+  bFromA: (a: A) => B;
+}
+
+
+// export type Customize = (ctx: CustomContext) => AcceptorsU | null;
+
+// export type CustomContext = CustomContextField | CustomContextStruct;
+// type CustomContextField = {
+//   kind: "field";
+// };
+// type CustomContextStruct = {
+//   kind: "struct";
+// };

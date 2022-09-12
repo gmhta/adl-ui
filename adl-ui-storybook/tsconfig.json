@@ -12,6 +12,7 @@
     "moduleResolution": "node",
     "allowSyntheticDefaultImports": true,
     "forceConsistentCasingInFileNames": true,
+    "noImplicitAny": false,
     "paths": {
       "@timbod7/adl-rt/*": ["../adl-rt/*"],
       "@timbod7/adl-ui": ["../adl-ui/index.ts"],

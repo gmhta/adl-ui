@@ -92,6 +92,7 @@ export function texprPerson(): ADL.ATypeExpr<Person> {
 
 export interface Hierarchy {
   leader: Person;
+  testNullMap: (string|null);
   underlings: Hierarchy[];
   fixedProps: FixedProps;
   properties: {[key: string]: string};
@@ -100,6 +101,7 @@ export interface Hierarchy {
 export function makeHierarchy(
   input: {
     leader: Person,
+    testNullMap: (string|null),
     underlings: Hierarchy[],
     fixedProps: FixedProps,
     properties: {[key: string]: string},
@@ -107,6 +109,7 @@ export function makeHierarchy(
 ): Hierarchy {
   return {
     leader: input.leader,
+    testNullMap: input.testNullMap,
     underlings: input.underlings,
     fixedProps: input.fixedProps,
     properties: input.properties,
@@ -114,7 +117,7 @@ export function makeHierarchy(
 }
 
 const Hierarchy_AST : ADL.ScopedDecl =
-  {"moduleName":"examples","decl":{"annotations":[],"type_":{"kind":"struct_","value":{"typeParams":[],"fields":[{"annotations":[],"serializedName":"leader","default":{"kind":"nothing"},"name":"leader","typeExpr":{"typeRef":{"kind":"reference","value":{"moduleName":"examples","name":"Person"}},"parameters":[]}},{"annotations":[],"serializedName":"underlings","default":{"kind":"nothing"},"name":"underlings","typeExpr":{"typeRef":{"kind":"primitive","value":"Vector"},"parameters":[{"typeRef":{"kind":"reference","value":{"moduleName":"examples","name":"Hierarchy"}},"parameters":[]}]}},{"annotations":[],"serializedName":"fixedProps","default":{"kind":"nothing"},"name":"fixedProps","typeExpr":{"typeRef":{"kind":"reference","value":{"moduleName":"examples","name":"FixedProps"}},"parameters":[]}},{"annotations":[],"serializedName":"properties","default":{"kind":"nothing"},"name":"properties","typeExpr":{"typeRef":{"kind":"primitive","value":"StringMap"},"parameters":[{"typeRef":{"kind":"primitive","value":"String"},"parameters":[]}]}}]}},"name":"Hierarchy","version":{"kind":"nothing"}}};
+  {"moduleName":"examples","decl":{"annotations":[],"type_":{"kind":"struct_","value":{"typeParams":[],"fields":[{"annotations":[],"serializedName":"leader","default":{"kind":"nothing"},"name":"leader","typeExpr":{"typeRef":{"kind":"reference","value":{"moduleName":"examples","name":"Person"}},"parameters":[]}},{"annotations":[],"serializedName":"testNullMap","default":{"kind":"nothing"},"name":"testNullMap","typeExpr":{"typeRef":{"kind":"primitive","value":"Nullable"},"parameters":[{"typeRef":{"kind":"primitive","value":"String"},"parameters":[]}]}},{"annotations":[],"serializedName":"underlings","default":{"kind":"nothing"},"name":"underlings","typeExpr":{"typeRef":{"kind":"primitive","value":"Vector"},"parameters":[{"typeRef":{"kind":"reference","value":{"moduleName":"examples","name":"Hierarchy"}},"parameters":[]}]}},{"annotations":[],"serializedName":"fixedProps","default":{"kind":"nothing"},"name":"fixedProps","typeExpr":{"typeRef":{"kind":"reference","value":{"moduleName":"examples","name":"FixedProps"}},"parameters":[]}},{"annotations":[],"serializedName":"properties","default":{"kind":"nothing"},"name":"properties","typeExpr":{"typeRef":{"kind":"primitive","value":"StringMap"},"parameters":[{"typeRef":{"kind":"primitive","value":"String"},"parameters":[]}]}}]}},"name":"Hierarchy","version":{"kind":"nothing"}}};
 
 export const snHierarchy: ADL.ScopedName = {moduleName:"examples", name:"Hierarchy"};
 
