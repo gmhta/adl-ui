@@ -14,8 +14,20 @@
     "moduleResolution": "node",
     "allowSyntheticDefaultImports": true,
     "forceConsistentCasingInFileNames": true,
-    "tsBuildInfoFile": "build/tsconfig.tsbuildinfo"
+    "tsBuildInfoFile": "build/tsconfig.tsbuildinfo",
+    "paths": {
+      "@timbod7/adl-rt/*": ["../adl-rt/*"],
+      "@timbod7/adl-ui": ["../adl-ui/index.ts"],
+    }
   },
+  "references": [
+    {
+      "path": "../adl-rt"
+    },
+    {
+      "path": "../adl-ui"
+    },
+  ],
   "exclude": [
     "dist",
     "node_modules",

@@ -16,6 +16,7 @@
     "paths": {
       "@timbod7/adl-rt/*": ["../adl-rt/*"],
       "@timbod7/adl-ui": ["../adl-ui/index.ts"],
+      "@timbod7/adl-ui-styled": ["../adl-ui-styled/index.ts"],
     },
     "baseUrl": "."
   },
@@ -25,6 +26,9 @@
     },
     {
       "path": "../adl-ui"
+    },
+    {
+      "path": "../adl-ui-styled"
     },
   ],
   "exclude": [

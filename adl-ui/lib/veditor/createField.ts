@@ -20,12 +20,6 @@ function createField1(
   ctx: CustomContext,
   factory: Factory
 ): FieldFns<unknown> | null {
-  if (factory) {
-    const customField = factory.getCustomField(ctx);
-    if (customField) {
-      return customField;
-    }
-  }
   const details = adlTree.details();
   if (details.kind === "primitive") {
     const fieldfns = adlPrimitiveFieldFns(details.ptype);

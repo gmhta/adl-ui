@@ -6,26 +6,12 @@ import {
 import {
   Acceptors,
   AcceptorsIsO,
-  AcceptorsOsIs,
-  AdlTypeMapper,
-  DescriptorUnion,
-  FieldDescriptor,
-  FieldDetails,
-  Override,
-  RenderProps,
-  StructDescriptor,
-  UnionDescriptor,
-  Visitor,
+  AcceptorsOsIs, AcceptUnimplementedProps, AdlTypeMapper,
+  DescriptorUnion, Factory, FieldDescriptor,
+  FieldDetails, IVEditor, Override, Rendered, RenderProps,
+  StructDescriptor, StructFieldProps, UnionBranchProps,
+  UnionDescriptor, UpdateFn, Visitor,
   VisitorU
-} from "./type";
-import {
-  AcceptUnimplementedProps,
-  Factory,
-  IVEditor,
-  Rendered,
-  StructFieldProps,
-  UpdateFn,
-  VEditorProps
 } from "./type";
 
 export type TandErrors<T> = {
@@ -379,11 +365,6 @@ export const updateAcceptor: Acceptors<
   }
 };
 
-export function update<S, E>(veditor: VisitorU, state: S, event: E): S {
-  return veditor.visit("update", { state, event }, updateAcceptor) as S;
-}
-
-
 export const renderAcceptor: Acceptors<
   RenderProps<string, string>, Rendered,
   RenderProps<StructState, StructEvent>, Rendered,
@@ -438,10 +419,12 @@ export const renderAcceptor: Acceptors<
       },
     };
 
-    let veditor: VEditorProps<unknown, unknown, unknown> | null = null;
+    let veditor: UnionBranchProps<unknown, unknown, unknown> | null = null;
     if (state.currentField) {
+      const visitor = unionDesc.branchDetails[state.currentField].visitor();
       veditor = {
-        veditor: makeVEditor(unionDesc.branchDetails[state.currentField].visitor(), factory),
+        visitor,
+        // veditor: makeVEditor(visitor, factory),
         state: state.fieldStates[state.currentField],
         onUpdate: event => onUpdate({ kind: "update", event })
       };
@@ -470,12 +453,10 @@ export function makeRenderStructField(fd: FieldDetails, factory: Factory, state:
     name: fd.name,
     label: fd.label,
     visitor: fd.visitor,
-    veditor: {
-      veditor,
-      state: state.fieldStates[fd.name],
-      onUpdate: event => {
-        onUpdate({ kind: "field", field: fd.name, fieldEvent: event });
-      }
+    veditor,
+    state: state.fieldStates[fd.name],
+    onUpdate: event => {
+      onUpdate({ kind: "field", field: fd.name, fieldEvent: event });
     }
   };
 }
@@ -488,6 +469,9 @@ export function validate<S>(veditor0: VisitorU, vstate: S): string[] {
   return veditor0.visit("validate", vstate, validateAcceptor) as string[];
 }
 
+export function update<S, E>(veditor: VisitorU, state: S, event: E): S {
+  return veditor.visit("update", { state, event }, updateAcceptor) as S;
+}
 
 export function stateFromValue<T, S>(veditor0: VisitorU, value0: T): S {
   return veditor0.visit("stateFromValue", value0, stateFromValueAcceptor) as S;

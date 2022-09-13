@@ -1,230 +1,73 @@
 import { storiesOf } from '@storybook/react';
-import React, { useState } from 'react';
-import styled from 'styled-components';
 import * as adlrt from "@timbod7/adl-rt/runtime/adl";
 import * as adlsys from "@timbod7/adl-rt/sys/types";
 import {
-  createVEditor,
-  Factory,
-  FieldEditorProps,
-  Rendered,
-  StructEditorProps,
-  UnimplementedEditorProps,
-  UnionEditorProps,
-  VEditor
+  createVisitor
 } from "@timbod7/adl-ui";
-import { typeExprToStringUnscoped } from '@timbod7/adl-rt/runtime/utils';
 
+import { renderVisit } from '@timbod7/adl-ui-styled';
 import * as adlex from '../adl-gen/examples';
 import { RESOLVER } from "../adl-gen/resolver";
-import { Select } from "./select.stories";
 
 storiesOf("VEditors", module)
   .add("String", () => {
-    const veditor = createVEditor(adlrt.texprString(), RESOLVER, VEDITOR_FACTORY);
-    return renderVEditorStory(veditor);
+    const visitor = createVisitor(adlrt.texprString(), RESOLVER)
+    return renderVisit(visitor);
   })
   .add("Word16", () => {
-    const veditor = createVEditor(adlrt.texprWord16(), RESOLVER, VEDITOR_FACTORY);
-    return renderVEditorStory(veditor);
+    const visitor = createVisitor(adlrt.texprWord16(), RESOLVER);
+    return renderVisit(visitor);
   })
   .add("Word16 (disabled)", () => {
-    const veditor = createVEditor(adlrt.texprWord16(), RESOLVER, VEDITOR_FACTORY);
-    return renderVEditorStory(veditor, true, 13);
+    const visitor = createVisitor(adlrt.texprWord16(), RESOLVER);
+    return renderVisit(visitor, true, 13);
   })
   .add("Bool", () => {
-    const veditor = createVEditor(adlrt.texprBool(), RESOLVER, VEDITOR_FACTORY);
-    return renderVEditorStory(veditor);
+    const visitor = createVisitor(adlrt.texprBool(), RESOLVER);
+    return renderVisit(visitor);
   })
   .add("Json", () => {
-    const veditor = createVEditor(adlrt.texprJson(), RESOLVER, VEDITOR_FACTORY);
-    return renderVEditorStory(veditor);
+    const visitor = createVisitor(adlrt.texprJson(), RESOLVER);
+    return renderVisit(visitor);
   })
   .add("Name", () => {
-    const veditor = createVEditor(adlex.texprName(), RESOLVER, VEDITOR_FACTORY);
-    return renderVEditorStory(veditor);
+    const visitor = createVisitor(adlex.texprName(), RESOLVER);
+    return renderVisit(visitor);
   })
   .add("Person", () => {
-    const veditor = createVEditor(adlex.texprPerson(), RESOLVER, VEDITOR_FACTORY);
-    return renderVEditorStory(veditor);
+    const visitor = createVisitor(adlex.texprPerson(), RESOLVER);
+    return renderVisit(visitor);
   })
   .add("Gender", () => {
-    const veditor = createVEditor(adlex.texprGender(), RESOLVER, VEDITOR_FACTORY);
-    return renderVEditorStory(veditor);
+    const visitor = createVisitor(adlex.texprGender(), RESOLVER);
+    return renderVisit(visitor);
   })
   .add("Hierarchy", () => {
-    const veditor = createVEditor(adlex.texprHierarchy(), RESOLVER, VEDITOR_FACTORY);
-    return renderVEditorStory(veditor);
+    const visitor = createVisitor(adlex.texprHierarchy(), RESOLVER);
+    return renderVisit(visitor);
   })
   .add("Maybe<String>", () => {
-    const veditor = createVEditor(adlsys.texprMaybe(adlrt.texprString()), RESOLVER, VEDITOR_FACTORY);
-    return renderVEditorStory(veditor);
+    const visitor = createVisitor(adlsys.texprMaybe(adlrt.texprString()), RESOLVER);
+    return renderVisit(visitor);
   })
   .add("Maybe<Word32>", () => {
-    const veditor = createVEditor(adlsys.texprMaybe(adlrt.texprWord32()), RESOLVER, VEDITOR_FACTORY);
-    return renderVEditorStory(veditor);
+    const visitor = createVisitor(adlsys.texprMaybe(adlrt.texprWord32()), RESOLVER);
+    return renderVisit(visitor);
   })
   .add("Maybe<Person>", () => {
-    const veditor = createVEditor(adlsys.texprMaybe(adlex.texprPerson()), RESOLVER, VEDITOR_FACTORY);
-    return renderVEditorStory(veditor);
+    const visitor = createVisitor(adlsys.texprMaybe(adlex.texprPerson()), RESOLVER);
+    return renderVisit(visitor);
   })
   .add("Nullable<String>", () => {
-    const veditor = createVEditor(adlrt.texprNullable(adlrt.texprString()), RESOLVER, VEDITOR_FACTORY);
-    return renderVEditorStory(veditor);
+    const visitor = createVisitor(adlrt.texprNullable(adlrt.texprString()), RESOLVER);
+    return renderVisit(visitor);
   })
   .add("Nullable<Word32>", () => {
-    const veditor = createVEditor(adlrt.texprNullable(adlrt.texprWord32()), RESOLVER, VEDITOR_FACTORY);
-    return renderVEditorStory(veditor);
+    const visitor = createVisitor(adlrt.texprNullable(adlrt.texprWord32()), RESOLVER);
+    return renderVisit(visitor);
   })
   .add("Nullable<Person>", () => {
-    const veditor = createVEditor(adlrt.texprNullable(adlex.texprPerson()), RESOLVER, VEDITOR_FACTORY);
-    return renderVEditorStory(veditor);
+    const visitor = createVisitor(adlrt.texprNullable(adlex.texprPerson()), RESOLVER);
+    return renderVisit(visitor);
   })
   ;
-
-function renderVEditorStory<T>(veditor: VEditor<T>, disabled?: boolean, initial?: T): JSX.Element {
-  const [state, setState] = useState<unknown>(() => initial === undefined ? veditor.getInitialState() : veditor.stateFromValue(initial));
-  const errs = veditor.validate(state);
-  const elements = veditor.render(state, disabled || false, e => setState((s: unknown) => veditor.update(s, e)));
-  console.log(errs);
-  return (
-    <Content>
-      <Row><HeaderLabel>Value:</HeaderLabel>{elements.beside}</Row>
-      {elements.below}
-      <hr />
-      {errs.length === 0
-        ? <Valid>Value:<br /><br />{JSON.stringify(veditor.valueFromState(state), null, 2)}</Valid>
-        : <Errors>Errors:<br /><br />{errs.join("\n")}</Errors>
-      }
-    </Content>
-  );
-}
-
-const Content = styled.div`
-  font-size: 14px;
-  font-family: sans-serif;
-`;
-
-const Row = styled.div`
-display: flex;
-flex-direction: row;
-align-items: center;
-`;
-
-const HeaderLabel = styled.div`
-margin-right: 10px;
-font-weight: bold;
-`;
-
-const Valid = styled.pre`
- color: green;
-`;
-
-const Errors = styled.pre`
-color: #b71c1c;
-`;
-
-const StyledInput = styled.input`
-padding: 8px;
-border: 1px solid #000;
-font-size: 14px;
-font-family: sans-serif;
-border-radius: 4px;
-`;
-
-const StyledError = styled.div`
-padding-left: calc(2* 8px);
-font-family: sans-serif;
-font-size: 14px;
-color: #b71c1c;
-`;
-
-const VEDITOR_FACTORY: Factory = {
-  getCustomVEditor: () => null,
-  getCustomField: () => null,
-  renderFieldEditor,
-  renderStructEditor,
-  renderUnionEditor,
-  renderVoidEditor,
-  renderUnimplementedEditor,
-};
-
-function renderVoidEditor(): Rendered {
-  return {};
-}
-
-function renderFieldEditor(props: FieldEditorProps): Rendered {
-  const { fieldfns, disabled, state, onUpdate } = props;
-  const errlabel = fieldfns.validate(state);
-  const beside = (
-    <Row>
-      <StyledInput value={state} onChange={(s) => onUpdate(s.currentTarget.value)} disabled={disabled} />
-      {errlabel && <StyledError>{errlabel}</StyledError>}
-    </Row>
-  );
-  return { beside };
-}
-
-
-function renderStructEditor(props: StructEditorProps): Rendered {
-  const rows = props.fields.map(fd => {
-    const label = props.disabled ? fd.label : <b>{fd.label}</b>;
-    const rendered = fd.veditor.veditor.render(fd.veditor.state, props.disabled, fd.veditor.onUpdate);
-    return (
-      <>
-        <tr key={fd.name}>
-          <StructFieldLabel>
-            <label>{label}</label>
-          </StructFieldLabel>
-          {rendered.beside && <StructFieldBeside>{rendered.beside}</StructFieldBeside>}
-        </tr>
-        {rendered.below && <StructFieldBelow colSpan={2}>{rendered.below}</StructFieldBelow>}
-      </>
-    );
-  });
-  const below = (
-    <StructContent>
-      <tbody>{rows}</tbody>
-    </StructContent>
-  );
-  return { below };
-}
-
-function renderUnionEditor(props: UnionEditorProps): Rendered {
-
-  const beside = <Select state={props.selectState} />;
-  if (!props.veditor) {
-    return { beside };
-  }
-  const r = props.veditor.veditor.render(props.veditor.state, props.disabled, props.veditor.onUpdate);
-  const below = <div>{r.beside}{r.below}</div>;
-  return {
-    beside,
-    below
-  };
-}
-
-const StructContent = styled.table`
-  border-collapse: collapse;
-  border-style: hidden;
-`;
-
-const StructFieldLabel = styled.td`
-  padding: 5px;
-`;
-
-const StructFieldBeside = styled.td`
-  padding: 5px;
-`;
-
-const StructFieldBelow = styled.td`
-  padding-left: 50px;
-`;
-
-
-function renderUnimplementedEditor(props: UnimplementedEditorProps): Rendered {
-  return {
-    beside: <div>unimplemented veditor for {typeExprToStringUnscoped(props.typeExpr)}</div>,
-    below: undefined,
-  };
-}

@@ -47,15 +47,10 @@ export interface CustomContext {
 }
 
 export interface Factory {
-  getCustomVEditor(ctx: CustomContext): UVEditor | null;
-  getCustomField(ctx: CustomContext): FieldFns<unknown> | null;
-
   renderFieldEditor(props: FieldEditorProps): Rendered;
   renderStructEditor(props: StructEditorProps): Rendered;
   renderUnionEditor(props: UnionEditorProps): Rendered;
   renderVoidEditor(): Rendered;
-  renderNullableEditor?(props: FieldEditorProps): Rendered;
-
   renderUnimplementedEditor(props: UnimplementedEditorProps): Rendered;
 }
 
@@ -67,12 +62,6 @@ export type RenderProps<S, E> = {
   disabled: boolean;
   onUpdate: UpdateFn<E>;
 };
-
-export interface VEditorProps<T, S, E> {
-  veditor: IVEditor<T, S, E>;
-  state: S;
-  onUpdate: (e: E) => void;
-}
 
 export interface UnimplementedEditorProps {
   typeExpr: adlast.TypeExpr;
@@ -119,11 +108,9 @@ export interface StructFieldProps {
   name: string;
   label: string;
   visitor: VisitorU;
-  veditor: {
-    veditor: IVEditor<unknown, unknown, unknown>;
-    state: unknown;
-    onUpdate: (e: unknown) => void;  
-  };
+  veditor: IVEditor<unknown, unknown, unknown>;
+  state: unknown;
+  onUpdate: (e: unknown) => void;  
 }
 
 // --- union
@@ -142,8 +129,15 @@ export type UnionBranch = {
 
 export interface UnionEditorProps {
   selectState: SelectState,
-  veditor: VEditorProps<unknown, unknown, unknown> | null;
+  veditor: UnionBranchProps<unknown, unknown, unknown> | null;
   disabled: boolean;
+}
+
+export interface UnionBranchProps<T, S, E> {
+  visitor: VisitorU;
+  // veditor: IVEditor<T, S, E>;
+  state: S;
+  onUpdate: (e: E) => void;
 }
 
 // ----

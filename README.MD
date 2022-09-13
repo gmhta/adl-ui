@@ -5,6 +5,8 @@
 ### Testing NPM Package
 
 ``` bash
+rm -r adl-ui/build adl-ui/dist adl-ui-styled/build adl-ui-styled/dist adl-rt/build adl-rt/dist 
+
 cd adl-rt
 yarn
 yarn build
@@ -18,9 +20,19 @@ npm pack
 npm link
 
 cd ..
+
+cd adl-ui-styled
+yarn
+yarn build
+npm pack
+npm link
+npm link @timbod7/adl-ui @timbod7/adl-rt
+
+cd ..
+
 cd adl-ui-storybook
 npm install
-npm link @timbod7/adl-ui @timbod7/adl-rt
+npm link @timbod7/adl-ui @timbod7/adl-rt @timbod7/adl-ui-styled
 npm run storybook
 ```
 

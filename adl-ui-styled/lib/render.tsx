@@ -1,17 +1,18 @@
 import React, { useState } from 'react';
+
+import { typeExprToStringUnscoped } from '@timbod7/adl-rt/runtime/utils';
+import {
+  Factory, FieldEditorProps,
+  getInitialState, render, Rendered, stateFromValue, StructEditorProps, UnimplementedEditorProps,
+  UnionEditorProps,
+  update,
+  validate, valueFromState,
+  VisitorU
+} from "@timbod7/adl-ui";
 import styled from 'styled-components';
-
-import { Rendered, VEditor,
-  Factory, FieldEditorProps, StructEditorProps, UnimplementedEditorProps, UnionEditorProps,
-} from '@timbod7/adl-ui';
-
-import { typeExprToStringUnscoped } from '@flowie/adl/runtime/utils';
-
 import { Select } from "./select";
 
 export const VEDITOR_FACTORY: Factory = {
-  getCustomVEditor: () => null,
-  getCustomField: () => null,
   renderFieldEditor,
   renderStructEditor,
   renderUnionEditor,
@@ -19,81 +20,25 @@ export const VEDITOR_FACTORY: Factory = {
   renderUnimplementedEditor,
 };
 
-export function renderVEditor<T>(
-  veditor: VEditor<T>,
-  disabled: boolean,
-  initial: T,
-  onValidate: (p: unknown) => Promise<string | null>
-): JSX.Element {
-  const [state, setState] = useState<unknown>(
-    () => initial === undefined || initial === null ?
-      veditor.initialState :
-      veditor.stateFromValue(initial)
-  );
-  // const state = initial === undefined || initial === null ?
-  // veditor.initialState :
-  // veditor.stateFromValue(initial);
-  const update = (e: unknown) => {
-    const newState = veditor.update(state, e);
-    setState(newState);
-    if (veditor.validate(newState).length === 0) {
-      onValidate(veditor.valueFromState(newState));
-    }
-  };
-  const errs = veditor.validate(state);
-  const elements = veditor.render(state, disabled || false, update);
-  console.log(errs);
+export function renderVisit<T>(visitor: VisitorU, disabled?: boolean, initial?: T): JSX.Element {
+  const [state, setState] = useState<unknown>(() => initial === undefined ? getInitialState(visitor) : stateFromValue(visitor, initial));
+  const errs = validate(visitor, state);
+  const onUpdate = (e: unknown) => setState((s: unknown) => update(visitor, s, e));
+  const elements = render(visitor, VEDITOR_FACTORY, state, disabled || false, onUpdate);
+  // const elements = veditor.render(state, disabled || false, e => setState((s: unknown) => veditor.update(s, e)));
+  // console.log(errs);
   return (
     <Content>
       <Row><HeaderLabel>Value:</HeaderLabel>{elements.beside}</Row>
       {elements.below}
       <hr />
       {errs.length === 0
-        ? <Valid>Value:<br /><br />{JSON.stringify(veditor.valueFromState(state), null, 2)}</Valid>
+        ? <Valid>Value:<br /><br />{JSON.stringify(valueFromState(visitor, state), null, 2)}</Valid>
         : <Errors>Errors:<br /><br />{errs.join("\n")}</Errors>
       }
     </Content>
   );
 }
-
-const Content = styled.div`
-    font-size: 14px;
-    font-family: sans-serif;
-  `;
-
-const Row = styled.div`
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  `;
-
-const HeaderLabel = styled.div`
-  margin-right: 10px;
-  font-weight: bold;
-  `;
-
-const Valid = styled.pre`
-   color: green;
-  `;
-
-const Errors = styled.pre`
-  color: #b71c1c;
-  `;
-
-const StyledInput = styled.input`
-  padding: 8px;
-  border: 1px solid #000;
-  font-size: 14px;
-  font-family: sans-serif;
-  border-radius: 4px;
-  `;
-
-const StyledError = styled.div`
-  padding-left: calc(2* 8px);
-  font-family: sans-serif;
-  font-size: 14px;
-  color: #b71c1c;
-  `;
 
 function renderVoidEditor(): Rendered {
   return {};
@@ -111,11 +56,11 @@ function renderFieldEditor(props: FieldEditorProps): Rendered {
   return { beside };
 }
 
-
 function renderStructEditor(props: StructEditorProps): Rendered {
   const rows = props.fields.map(fd => {
     const label = props.disabled ? fd.label : <b>{fd.label}</b>;
-    const rendered = fd.veditor.veditor.render(fd.veditor.state, props.disabled, fd.veditor.onUpdate);
+    const rendered = render(fd.visitor, VEDITOR_FACTORY, fd.state, props.disabled, fd.onUpdate)
+    // const rendered = fd.veditor.veditor.render(fd.veditor.state, props.disabled, fd.veditor.onUpdate);
     return (
       <>
         <tr key={fd.name}>
@@ -141,31 +86,14 @@ function renderUnionEditor(props: UnionEditorProps): Rendered {
   if (!props.veditor) {
     return { beside };
   }
-  const r = props.veditor.veditor.render(props.veditor.state, props.disabled, props.veditor.onUpdate);
+  const r = render(props.veditor.visitor, VEDITOR_FACTORY, props.veditor.state, props.disabled, props.veditor.onUpdate)
+  // const r = props.veditor.veditor.render(props.veditor.state, props.disabled, props.veditor.onUpdate);
   const below = <div>{r.beside}{r.below}</div>;
   return {
     beside,
     below
-  };
+  };  
 }
-
-const StructContent = styled.table`
-    border-collapse: collapse;
-    border-style: hidden;
-  `;
-
-const StructFieldLabel = styled.td`
-    padding: 5px;
-  `;
-
-const StructFieldBeside = styled.td`
-    padding: 5px;
-  `;
-
-const StructFieldBelow = styled.td`
-    padding-left: 50px;
-  `;
-
 
 function renderUnimplementedEditor(props: UnimplementedEditorProps): Rendered {
   return {
@@ -173,3 +101,59 @@ function renderUnimplementedEditor(props: UnimplementedEditorProps): Rendered {
     below: undefined,
   };
 }
+
+export const Content = styled.div`
+  font-size: 14px;
+  font-family: sans-serif;
+`;
+
+export const Row = styled.div`
+display: flex;
+flex-direction: row;
+align-items: center;
+`;
+
+export const HeaderLabel = styled.div`
+margin-right: 10px;
+font-weight: bold;
+`;
+
+export const Valid = styled.pre`
+ color: green;
+`;
+
+export const Errors = styled.pre`
+color: #b71c1c;
+`;
+
+export const StyledInput = styled.input`
+padding: 8px;
+border: 1px solid #000;
+font-size: 14px;
+font-family: sans-serif;
+border-radius: 4px;
+`;
+
+export const StyledError = styled.div`
+padding-left: calc(2* 8px);
+font-family: sans-serif;
+font-size: 14px;
+color: #b71c1c;
+`;
+
+export const StructContent = styled.table`
+  border-collapse: collapse;
+  border-style: hidden;
+`;
+
+export const StructFieldLabel = styled.td`
+  padding: 5px;
+`;
+
+export const StructFieldBeside = styled.td`
+  padding: 5px;
+`;
+
+export const StructFieldBelow = styled.td`
+  padding-left: 50px;
+`;

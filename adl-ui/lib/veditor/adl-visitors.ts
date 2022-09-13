@@ -31,11 +31,12 @@ export const nullContext = { scopedDecl: null, field: null };
 export function createVisitor<T>(
   typeExpr: adlrt.ATypeExpr<T>,
   declResolver: adlrt.DeclResolver,
-  customizers: {
+  customizers0?: {
     overrides: Override[],
-    mappers: AdlTypeMapper<unknown, unknown>[],
+    mappers: AdlTypeMapper<any, any>[],
   },
 ): VisitorU {
+  const customizers = customizers0 ? customizers0 : { overrides: [], mappers: [] };
   const mappers = customizers.mappers.filter(m => typeExprsEqual(m.texprA.value, typeExpr.value));
   if (mappers.length > 1) {
     throw new Error("more than one mapper matched. typeExpr " + JSON.stringify(typeExpr.value));
@@ -48,7 +49,7 @@ export function createVisitor<T>(
   return createVisitor0(declResolver, nullContext, adlTree, customizers, undefined);
 }
 
-export function createVisitor0(
+function createVisitor0(
   declResolver: adlrt.DeclResolver,
   ctx: InternalContext,
   adlTree: adltree.AdlTree,
@@ -403,7 +404,7 @@ export function voidVisitor(
 ): VisitorU {
   function visit(name: string, env0: unknown, acceptor: AcceptorsU): unknown {
     const desc = {};
-    const texpr = adlrt.texprVoid()
+    const texpr = adlrt.texprVoid();
     let before: AcceptorCut | void = acceptor.before ? acceptor.before : undefined;
     let after: AcceptorCut | void = acceptor.after ? acceptor.after : undefined;
     before = customizers.before ? customizers.before : before;
