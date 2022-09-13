@@ -181,15 +181,26 @@ export function texprFull(): ADL.ATypeExpr<Full> {
   return {value : {typeRef : {kind: "reference", value : snFull}, parameters : []}};
 }
 
+export type FullShadow = Full;
+
+const FullShadow_AST : ADL.ScopedDecl =
+  {"moduleName":"examples","decl":{"annotations":[],"type_":{"kind":"type_","value":{"typeParams":[],"typeExpr":{"typeRef":{"kind":"reference","value":{"moduleName":"examples","name":"Full"}},"parameters":[]}}},"name":"FullShadow","version":{"kind":"nothing"}}};
+
+export const snFullShadow: ADL.ScopedName = {moduleName:"examples", name:"FullShadow"};
+
+export function texprFullShadow(): ADL.ATypeExpr<FullShadow> {
+  return {value : {typeRef : {kind: "reference", value : snFullShadow}, parameters : []}};
+}
+
 export interface Display {
   name: string;
-  model: Full;
+  model: FullShadow;
 }
 
 export function makeDisplay(
   input: {
     name: string,
-    model: Full,
+    model: FullShadow,
   }
 ): Display {
   return {
@@ -199,7 +210,7 @@ export function makeDisplay(
 }
 
 const Display_AST : ADL.ScopedDecl =
-  {"moduleName":"examples","decl":{"annotations":[],"type_":{"kind":"struct_","value":{"typeParams":[],"fields":[{"annotations":[],"serializedName":"name","default":{"kind":"nothing"},"name":"name","typeExpr":{"typeRef":{"kind":"primitive","value":"String"},"parameters":[]}},{"annotations":[],"serializedName":"model","default":{"kind":"nothing"},"name":"model","typeExpr":{"typeRef":{"kind":"reference","value":{"moduleName":"examples","name":"Full"}},"parameters":[]}}]}},"name":"Display","version":{"kind":"nothing"}}};
+  {"moduleName":"examples","decl":{"annotations":[],"type_":{"kind":"struct_","value":{"typeParams":[],"fields":[{"annotations":[],"serializedName":"name","default":{"kind":"nothing"},"name":"name","typeExpr":{"typeRef":{"kind":"primitive","value":"String"},"parameters":[]}},{"annotations":[],"serializedName":"model","default":{"kind":"nothing"},"name":"model","typeExpr":{"typeRef":{"kind":"reference","value":{"moduleName":"examples","name":"FullShadow"}},"parameters":[]}}]}},"name":"Display","version":{"kind":"nothing"}}};
 
 export const snDisplay: ADL.ScopedName = {moduleName:"examples", name:"Display"};
 
@@ -214,5 +225,6 @@ export const _AST_MAP: { [key: string]: ADL.ScopedDecl } = {
   "examples.Hierarchy" : Hierarchy_AST,
   "examples.FixedProps" : FixedProps_AST,
   "examples.Full" : Full_AST,
+  "examples.FullShadow" : FullShadow_AST,
   "examples.Display" : Display_AST
 };

@@ -43,8 +43,7 @@ export function createVEditor<T>(
   const visitor = createVisitor(
     typeExpr,
     declResolver,
-    customizers ? customizers.overrides : [],
-    customizers ? customizers.mappers : [],
+    customizers ? customizers : { overrides: [], mappers: [] },
   );
   return makeVEditor(visitor, factory);
 }

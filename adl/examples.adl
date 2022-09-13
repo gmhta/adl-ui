@@ -38,9 +38,12 @@ struct Full {
   String surname;
 };
 
+// need a shadow else mapper with recursive till stack overflow.
+type FullShadow = Full;
+
 struct Display {
   String name;
-  Full model;
+  FullShadow model;
 };
 
 

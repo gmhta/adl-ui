@@ -182,6 +182,11 @@ export type Override = {
   acceptUnimplemented?: (env: any, props: AcceptUnimplementedProps) => any;
 };
 
+export type Customizers = {
+  overrides: Override[],
+  mappers: AdlTypeMapper<any, any>[],
+};
+
 export type OverrideNames = "getInitialState"
   | "validate"
   | "stateFromValue"
