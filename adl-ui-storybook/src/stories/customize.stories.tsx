@@ -9,6 +9,7 @@ import {
   makeOverride,
   makeRenderStructField,
   makeVEditor,
+  renderAcceptor,
   Rendered,
   StructDescriptor,
   StructEditorProps,
@@ -21,7 +22,7 @@ import {
 } from "@timbod7/adl-ui";
 import React, { useState } from 'react';
 import styled from 'styled-components';
-
+import * as adlrt from "../adl-gen/runtime/adl";
 import * as adlex from '../adl-gen/examples';
 import { RESOLVER } from "../adl-gen/resolver";
 import { Select } from "./select.stories";
@@ -38,7 +39,7 @@ storiesOf("Overrides & Mappers", module)
                 if (typeExprsEqual(adlex.texprDisplay().value, structDesc.texpr.value) && fd.name === "model") {
                   return [];
                 }
-                return [makeRenderStructField(fd, VEDITOR_FACTORY, state, onUpdate)]
+                return [makeRenderStructField(fd, VEDITOR_FACTORY, state, onUpdate)];
               });
               return VEDITOR_FACTORY.renderStructEditor({ fields, disabled });
             }
@@ -83,13 +84,32 @@ storiesOf("Overrides & Mappers", module)
     );
     return renderVEditorStory(veditor);
   })
+  .add("Customer Field in Struct", () => {
+    const veditor = createVEditor(adlex.texprHierarchy(), RESOLVER, VEDITOR_FACTORY,
+      {
+        overrides: [
+          makeOverride("render", {
+            acceptField(env, fieldDesc) {
+              if (typeExprsEqual(fieldDesc.texpr.value, adlrt.texprString().value)) {
+                return renderAcceptor.acceptField({ ...env, factory: VEDITOR_FACTORY2 }, fieldDesc);
+              }
+              return renderAcceptor.acceptField(env, fieldDesc);
+            },
+          }),
+        ],
+        mappers: [],
+      }
+    );
+    return renderVEditorStory(veditor);
+  })
+
   ;
 
 function renderVEditorStory<T>(veditor: VEditor<T>, disabled?: boolean, initial?: T): JSX.Element {
   const [state, setState] = useState<unknown>(() => initial === undefined ? veditor.getInitialState() : veditor.stateFromValue(initial));
   const errs = veditor.validate(state);
   const elements = veditor.render(state, disabled || false, e => setState((s: unknown) => veditor.update(s, e)));
-  console.log(errs);
+  // console.log(errs);
   return (
     <Content>
       <Row><HeaderLabel>Value:</HeaderLabel>{elements.beside}</Row>
@@ -152,6 +172,16 @@ const VEDITOR_FACTORY: Factory = {
   renderUnimplementedEditor,
 };
 
+const VEDITOR_FACTORY2: Factory = {
+  getCustomVEditor: () => null,
+  getCustomField: () => null,
+  renderFieldEditor: renderFieldEditor2,
+  renderStructEditor,
+  renderUnionEditor,
+  renderVoidEditor,
+  renderUnimplementedEditor,
+};
+
 function renderVoidEditor(): Rendered {
   return {};
 }
@@ -162,6 +192,18 @@ function renderFieldEditor(props: FieldEditorProps): Rendered {
   const beside = (
     <Row>
       <StyledInput value={state} onChange={(s) => onUpdate(s.currentTarget.value)} disabled={disabled} />
+      {errlabel && <StyledError>{errlabel}</StyledError>}
+    </Row>
+  );
+  return { beside };
+}
+
+function renderFieldEditor2(props: FieldEditorProps): Rendered {
+  const { fieldfns, disabled, state, onUpdate } = props;
+  const errlabel = fieldfns.validate(state);
+  const beside = (
+    <Row>
+      <StyledInput placeholder='iam a placeholder' value={state} onChange={(s) => onUpdate(s.currentTarget.value)} disabled={disabled} />
       {errlabel && <StyledError>{errlabel}</StyledError>}
     </Row>
   );

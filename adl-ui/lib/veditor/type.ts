@@ -59,29 +59,14 @@ export interface Factory {
   renderUnimplementedEditor(props: UnimplementedEditorProps): Rendered;
 }
 
-export interface FieldEditorProps {
-  fieldfns: FieldFns<unknown>;
+
+
+export type RenderProps<S, E> = {
+  factory: Factory;
+  state: S;
   disabled: boolean;
-  state: string;
-  onUpdate: UpdateFn<string>;
+  onUpdate: UpdateFn<E>;
 };
-
-export interface StructEditorProps {
-  fields: StructFieldProps[];
-  disabled: boolean;
-}
-
-export interface StructFieldProps {
-  name: string;
-  label: string;
-  veditor: VEditorProps<unknown, unknown, unknown>;
-}
-
-export interface UnionEditorProps {
-  selectState: SelectState,
-  veditor: VEditorProps<unknown, unknown, unknown> | null;
-  disabled: boolean;
-}
 
 export interface VEditorProps<T, S, E> {
   veditor: IVEditor<T, S, E>;
@@ -98,12 +83,20 @@ export interface InternalContext {
   field: adlast.Field | null;
 }
 
-
+// --- field
 export type FieldDescriptor = {
   fieldfns: FieldFns<unknown>;
   texpr: adlrt.ATypeExpr<unknown>;
 };
 
+export interface FieldEditorProps {
+  fieldfns: FieldFns<unknown>;
+  disabled: boolean;
+  state: string;
+  onUpdate: UpdateFn<string>;
+};
+
+// --- struct
 export type StructDescriptor = {
   fieldDetails: FieldDetails[];
   texpr: adlrt.ATypeExpr<unknown>;
@@ -117,6 +110,23 @@ export type FieldDetails = {
   visitor: VisitorU;
 };
 
+export interface StructEditorProps {
+  fields: StructFieldProps[];
+  disabled: boolean;
+}
+
+export interface StructFieldProps {
+  name: string;
+  label: string;
+  visitor: VisitorU;
+  veditor: {
+    veditor: IVEditor<unknown, unknown, unknown>;
+    state: unknown;
+    onUpdate: (e: unknown) => void;  
+  };
+}
+
+// --- union
 export type UnionDescriptor = {
   branchDetails: Record<string, UnionBranch>;
   texpr: adlrt.ATypeExpr<unknown>;
@@ -130,6 +140,13 @@ export type UnionBranch = {
   visitor: () => VisitorU;
 };
 
+export interface UnionEditorProps {
+  selectState: SelectState,
+  veditor: VEditorProps<unknown, unknown, unknown> | null;
+  disabled: boolean;
+}
+
+// ----
 export type CutCtx = {
   // the acceptor name, passed to the visitor
   name: string;
