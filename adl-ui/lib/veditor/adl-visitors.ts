@@ -10,11 +10,13 @@ import { FieldFns } from "../fields/type";
 import { fieldLabel } from "./fieldLabel";
 import { isMaybe, maybeFromNullable, nullableFromMaybe } from "./maybe-utils";
 import {
+  AcceptorCut,
   AcceptorsIO,
   AcceptorsU,
   AcceptUnimplementedProps,
   AdlTypeMapper,
   Customizers,
+  FieldDescriptor,
   FieldDetails,
   InternalContext,
   Mapper,
@@ -60,7 +62,7 @@ export function createVisitor0(
   switch (details.kind) {
     case "primitive": {
       if (details.ptype === "Void") {
-        return voidVisitor(customizers);
+        return voidVisitor(customizers, mapper);
       } else {
         const fldfns = createField(adlTree);//, customContext, factory);
         if (fldfns === null) {
@@ -228,15 +230,31 @@ export function fieldVisitor<T>(
   customizers: Customizers,
   mapper?: Mapper<unknown, unknown>
 ): VisitorU {
-  function visit(name: string, env: unknown, acceptor: AcceptorsU): unknown {
+  function visit(name: string, env0: unknown, acceptor: AcceptorsU): unknown {
+    let before: AcceptorCut | void = acceptor.before ? acceptor.before : undefined;
+    let after: AcceptorCut | void = acceptor.after ? acceptor.after : undefined;
+    before = customizers.before ? customizers.before : before;
+    after = customizers.after ? customizers.after : after;
     const oRides = customizers.overrides.filter(o => o.name === name && o.acceptField);
     if (oRides.length > 1) {
       throw new Error("more than one override matched. name: " + name + " function: acceptField");
     }
+    let env = env0;
+    const desc: FieldDescriptor = { texpr, fieldfns };
+    let fn = acceptor.acceptField;
     if (oRides.length === 1 && oRides[0].acceptField) {
-      return oRides[0].acceptField(env, { mapper, texpr, fieldfns });
+      before = oRides[0].before ? oRides[0].before : before;
+      after = oRides[0].after ? oRides[0].after : after;
+      fn = oRides[0].acceptField;
     }
-    return acceptor.acceptField(env, { mapper, texpr, fieldfns });
+    if (before) {
+      env = before(env, { kind: "field", value: desc, cutCtx: { name, texpr, mapper } });
+    }
+    env = fn(env, desc);
+    if (after) {
+      env = after(env, { kind: "field", value: desc, cutCtx: { name, texpr, mapper } });
+    }
+    return env;
   }
   return {
     visit
@@ -266,7 +284,7 @@ export function structVisitor(
     };
   });
 
-  function visit<I, O>(name: string, env: I, acceptor: AcceptorsIO<I, O>): O {
+  function visit(name: string, env0: unknown, acceptor: AcceptorsU): unknown {
     const texpr: adlrt.ATypeExpr<unknown> = {
       value: adlast.makeTypeExpr({
         typeRef: adlast.makeTypeRef("reference", adlast.makeScopedName({
@@ -277,20 +295,33 @@ export function structVisitor(
       })
     };
     const desc: StructDescriptor = {
-      mapper,
       texpr,
       fieldDetails,
     };
 
+    let before: AcceptorCut | void = acceptor.before ? acceptor.before : undefined;
+    let after: AcceptorCut | void = acceptor.after ? acceptor.after : undefined;
+    before = customizers.before ? customizers.before : before;
+    after = customizers.after ? customizers.after : after;
+    let env = env0;
+    let fn = acceptor.acceptStruct;
     const oRides = customizers.overrides.filter(o => o.name === name && o.acceptStruct);
     if (oRides.length > 1) {
       throw new Error("more than one override matched. name: " + name + " function: acceptStruct");
     }
     if (oRides.length === 1 && oRides[0].acceptStruct) {
-      return oRides[0].acceptStruct(env, desc);
+      before = oRides[0].before ? oRides[0].before : before;
+      after = oRides[0].after ? oRides[0].after : after;
+      fn = oRides[0].acceptStruct;
     }
-
-    return acceptor.acceptStruct(env, desc);
+    if (before) {
+      env = before(env, { kind: "struct", value: desc, cutCtx: { name, texpr, mapper } });
+    }
+    env = fn(env, desc);
+    if (after) {
+      env = after(env, { kind: "struct", value: desc, cutCtx: { name, texpr, mapper } });
+    }
+    return env;
   }
 
   return {
@@ -318,8 +349,6 @@ export function unionVisitor(
   const unionDesc: UnionDescriptor = {
     branchDetails: {},
     texpr,
-    // scopedDecl: { moduleName: union.moduleName, decl: union.astDecl },
-    mapper
   };
 
   union.fields.forEach((field, index) => {
@@ -336,17 +365,31 @@ export function unionVisitor(
     };
   });
 
-  function visit<I, O>(name: string, env: I, acceptor: AcceptorsIO<I, O>): O {
-
+  function visit(name: string, env0: unknown, acceptor: AcceptorsU): unknown {
+    const desc = unionDesc;
+    let before: AcceptorCut | void = acceptor.before ? acceptor.before : undefined;
+    let after: AcceptorCut | void = acceptor.after ? acceptor.after : undefined;
+    before = customizers.before ? customizers.before : before;
+    after = customizers.after ? customizers.after : after;
+    let env = env0;
+    let fn = acceptor.acceptUnion;
     const oRides = customizers.overrides.filter(o => o.name === name && o.acceptUnion);
     if (oRides.length > 1) {
       throw new Error("more than one override matched. name: " + name + " function: acceptUnion");
     }
     if (oRides.length === 1 && oRides[0].acceptUnion) {
-      return oRides[0].acceptUnion(env, unionDesc);
+      before = oRides[0].before ? oRides[0].before : before;
+      after = oRides[0].after ? oRides[0].after : after;
+      fn = oRides[0].acceptUnion;
     }
-
-    return acceptor.acceptUnion(env, unionDesc);
+    if (before) {
+      env = before(env, { kind: "union", value: desc, cutCtx: { name, texpr, mapper } });
+    }
+    env = fn(env, desc);
+    if (after) {
+      env = after(env, { kind: "union", value: desc, cutCtx: { name, texpr, mapper } });
+    }
+    return env;
   }
 
   return {
@@ -356,17 +399,34 @@ export function unionVisitor(
 
 export function voidVisitor(
   customizers: Customizers,
+  mapper?: Mapper<unknown, unknown>,
 ): VisitorU {
-  function visit<I, O>(name: string, env: I, acceptor: AcceptorsIO<I, O>): O {
+  function visit(name: string, env0: unknown, acceptor: AcceptorsU): unknown {
+    const desc = {};
+    const texpr = adlrt.texprVoid()
+    let before: AcceptorCut | void = acceptor.before ? acceptor.before : undefined;
+    let after: AcceptorCut | void = acceptor.after ? acceptor.after : undefined;
+    before = customizers.before ? customizers.before : before;
+    after = customizers.after ? customizers.after : after;
+    let env = env0;
+    let fn = acceptor.acceptVoid;
     const oRides = customizers.overrides.filter(o => o.name === name && o.acceptVoid);
     if (oRides.length > 1) {
       throw new Error("more than one override matched. name: " + name + " function: acceptVoid");
     }
     if (oRides.length === 1 && oRides[0].acceptVoid) {
-      return oRides[0].acceptVoid(env, {});
+      before = oRides[0].before ? oRides[0].before : before;
+      after = oRides[0].after ? oRides[0].after : after;
+      fn = oRides[0].acceptVoid;
     }
-
-    return acceptor.acceptVoid(env, {});
+    if (before) {
+      env = before(env, { kind: "void", value: desc, cutCtx: { name, texpr, mapper } });
+    }
+    env = fn(env, desc);
+    if (after) {
+      env = after(env, { kind: "void", value: desc, cutCtx: { name, texpr, mapper } });
+    }
+    return env;
   }
   return {
     visit,
@@ -382,7 +442,7 @@ export function vectorVisitor(
       throw new Error("more than one override matched. name: " + name + " function: acceptVector");
     }
     if (oRides.length === 1 && oRides[0].acceptVector) {
-      return oRides[0].acceptVector(env, {});
+      throw new Error("not implemented");
     }
     throw new Error("not implemented");
   }

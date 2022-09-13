@@ -102,13 +102,11 @@ export interface InternalContext {
 export type FieldDescriptor = {
   fieldfns: FieldFns<unknown>;
   texpr: adlrt.ATypeExpr<unknown>;
-  mapper?: Mapper<unknown, unknown>;
 };
 
 export type StructDescriptor = {
   fieldDetails: FieldDetails[];
   texpr: adlrt.ATypeExpr<unknown>;
-  mapper?: Mapper<unknown, unknown>;
 };
 export type FieldDetails = {
   name: string;
@@ -123,7 +121,6 @@ export type UnionDescriptor = {
   branchDetails: Record<string, UnionBranch>;
   texpr: adlrt.ATypeExpr<unknown>;
   // scopedDecl: adlast.ScopedDecl;
-  mapper?: Mapper<unknown, unknown>;
 };
 
 export type UnionBranch = {
@@ -133,18 +130,38 @@ export type UnionBranch = {
   visitor: () => VisitorU;
 };
 
+export type CutCtx = {
+  // the acceptor name, passed to the visitor
+  name: string;
+  texpr: adlrt.ATypeExpr<unknown>;
+  mapper?: Mapper<unknown, unknown>;
+};
+
+export type DescriptorUnion =
+  { kind: "field"; value: FieldDescriptor; cutCtx: CutCtx; }
+  | { kind: "struct"; value: StructDescriptor; cutCtx: CutCtx; }
+  | { kind: "union"; value: UnionDescriptor; cutCtx: CutCtx; }
+  | { kind: "void"; value: VoidDescriptor; cutCtx: CutCtx; }
+  | { kind: "vector"; value: VectorDescriptor; cutCtx: CutCtx; }
+  | { kind: "unimpl"; value: AcceptUnimplementedProps; cutCtx: CutCtx; }
+  ;
+
 export type VectorDescriptor = {
 };
 
 export type VoidDescriptor = {
 };
 
+export type AcceptorCut = (env: unknown, desc: DescriptorUnion) => unknown;
+
 export interface Acceptors<FI, FO, SI, SO, UI, UO, VI, VO, AI, AO, XI, XO> {
+  before?: AcceptorCut;
+  after?: AcceptorCut;
   acceptField(env: FI, fieldDesc: FieldDescriptor): FO;
   acceptStruct(env: SI, structDesc: StructDescriptor): SO;
   acceptUnion(env: UI, unionDesc: UnionDescriptor): UO;
   acceptVoid(env: VI, desc: VoidDescriptor): VO;
-  acceptVector(env: AI, desc: StructDescriptor | UnionDescriptor): AO;
+  acceptVector(env: AI, desc: VectorDescriptor): AO;
   acceptUnimplemented(env: XI, props: AcceptUnimplementedProps): XO;
 }
 
@@ -174,6 +191,8 @@ export type VisitorU = Visitor<unknown, unknown>;
 
 export type Override = {
   name: string,
+  before?: AcceptorCut;
+  after?: AcceptorCut;
   acceptField?: (env: any, fieldDesc: FieldDescriptor) => any;
   acceptStruct?: (env: any, structDesc: StructDescriptor) => any;
   acceptUnion?: (env: any, unionDesc: UnionDescriptor) => any;
@@ -185,6 +204,8 @@ export type Override = {
 export type Customizers = {
   overrides: Override[],
   mappers: AdlTypeMapper<any, any>[],
+  before?: AcceptorCut;
+  after?: AcceptorCut;
 };
 
 export type OverrideNames = "getInitialState"

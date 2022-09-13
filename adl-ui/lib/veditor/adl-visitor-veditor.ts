@@ -8,9 +8,11 @@ import {
   AcceptorsIsO,
   AcceptorsOsIs,
   AdlTypeMapper,
+  DescriptorUnion,
   FieldDescriptor,
   FieldDetails,
   Override,
+  OverrideNames,
   StructDescriptor,
   UnionDescriptor,
   Visitor,
@@ -100,25 +102,22 @@ export interface SomeUnion {
 
 export const stateFromValueAcceptor: Acceptors<
   unknown, string,
-  Record<string, unknown> | unknown, StructState,
-  SomeUnion | unknown, UnionState,
+  Record<string, unknown>, StructState,
+  SomeUnion, UnionState,
   unknown, unknown,
   unknown, unknown,
   unknown, unknown
 > = {
-  acceptField: (value: unknown, fieldDesc: FieldDescriptor): string => {
-    if (fieldDesc.mapper) {
-      return fieldDesc.fieldfns.toText(fieldDesc.mapper.bFromA(value));
+  before: (env: unknown, desc: DescriptorUnion): unknown => {
+    if( desc.cutCtx.mapper ) {
+      return desc.cutCtx.mapper.bFromA(env)
     }
+    return env
+  },
+  acceptField: (value: unknown, fieldDesc: FieldDescriptor): string => {
     return fieldDesc.fieldfns.toText(value);
   },
-  acceptStruct: (value0: Record<string, unknown> | unknown, structDesc: StructDescriptor): StructState => {
-    let value: Record<string, unknown> = {};
-    if (structDesc.mapper) {
-      value = structDesc.mapper.bFromA(value0) as Record<string, unknown>;
-    } else {
-      value = value0 as Record<string, unknown>;
-    }
+  acceptStruct: (value: Record<string, unknown>, structDesc: StructDescriptor): StructState => {
     const state: StructState = {
       fieldStates: {},
     };
@@ -127,13 +126,7 @@ export const stateFromValueAcceptor: Acceptors<
     }
     return state;
   },
-  acceptUnion: function (value0: SomeUnion | unknown, unionDesc: UnionDescriptor): UnionState {
-    let uvalue = {} as SomeUnion;
-    if (unionDesc.mapper) {
-      uvalue = unionDesc.mapper.bFromA(value0) as SomeUnion;
-    } else {
-      uvalue = value0 as SomeUnion;
-    }
+  acceptUnion: function (uvalue: SomeUnion, unionDesc: UnionDescriptor): UnionState {
     const kind = uvalue.kind;
     if (!kind) {
       throw new Error("union must have kind field");
@@ -254,37 +247,34 @@ export const validateAcceptor: AcceptorsIsO<
 
 export const valueFromStateAcceptor: AcceptorsOsIs<
   unknown, string,
-  Record<string, unknown> | unknown, StructState,
+  Record<string, unknown>, StructState,
   SomeUnion | unknown, UnionState,
   unknown, unknown,
   unknown, unknown,
   unknown, unknown
 > = {
-  acceptField: (state: string, fieldDesc: FieldDescriptor): unknown => {
-    if (fieldDesc.mapper) {
-      return fieldDesc.mapper.aFromB(fieldDesc.fieldfns.fromText(state));
+  after: (env: unknown, desc: DescriptorUnion): unknown => {
+    if( desc.cutCtx.mapper ) {
+      return desc.cutCtx.mapper.aFromB(env)
     }
+    return env
+  },
+  acceptField: (state: string, fieldDesc: FieldDescriptor): unknown => {
     return fieldDesc.fieldfns.fromText(state);
   },
-  acceptStruct: (state: StructState, structDesc: StructDescriptor): Record<string, unknown> | unknown => {
+  acceptStruct: (state: StructState, structDesc: StructDescriptor): Record<string, unknown> => {
     const value: Record<string, unknown> = {};
     for (const fd of structDesc.fieldDetails) {
       value[fd.name] = fd.visitor.visit("valueFromState", state.fieldStates[fd.name], valueFromStateAcceptor);
     }
-    if (structDesc.mapper) {
-      return structDesc.mapper.aFromB(value);
-    }
     return value;
   },
-  acceptUnion: (state: UnionState, unionDesc: UnionDescriptor): SomeUnion | unknown => {
+  acceptUnion: (state: UnionState, unionDesc: UnionDescriptor): SomeUnion => {
     const kind = state.currentField;
     if (kind === null) {
       throw new Error("BUG: union valueFromState called on invalid state");
     }
     const value = unionDesc.branchDetails[kind].visitor().visit("valueFromState", state.fieldStates[kind], valueFromStateAcceptor);
-    if (unionDesc.mapper) {
-      return unionDesc.mapper.aFromB({ kind, value });
-    }
     return { kind, value };
   },
   acceptVoid: (env: unknown): unknown => {
