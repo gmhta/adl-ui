@@ -53,6 +53,6 @@ export function mappedVEditor<A, B, S, E>(
     validate: veditor.validate,
     valueFromState: (s: S) => bFromA(veditor.valueFromState(s)),
     update: veditor.update,
-    render: veditor.render,
+    // render: veditor.render,
   };
 }

@@ -1,23 +1,15 @@
 import { storiesOf } from '@storybook/react';
 import { typeExprsEqual } from '@timbod7/adl-rt/runtime/utils';
 import {
-  createVisitor,
-  Factory,
-  FieldDescriptor,
-  FieldEditorProps,
-  makeAdlMapper,
+  createVisitor, FieldDescriptor, makeAdlMapper,
   makeOverride,
-  makeRenderStructField,
-  renderAcceptor,
   Rendered,
   RenderProps,
   StructDescriptor,
-  StructEvent,
-  StructFieldProps,
-  StructState,
+  StructEvent, StructState,
   validateAcceptor
 } from "@timbod7/adl-ui";
-import { renderVisit, Row, StyledError, StyledInput, VEDITOR_FACTORY } from '@timbod7/adl-ui-styled';
+import { acceptStruct, renderVisit, Row, StyledError, StyledInput, styledRenderAcceptor } from '@timbod7/adl-ui-styled';
 import React from 'react';
 import * as adlex from '../adl-gen/examples';
 import { RESOLVER } from "../adl-gen/resolver";
@@ -30,14 +22,13 @@ storiesOf("Overrides & Mappers", module)
         overrides: [
           makeOverride("render", {
             acceptStruct: (env: RenderProps<StructState, StructEvent>, structDesc: StructDescriptor): Rendered => {
-              const { state, disabled, onUpdate } = env;
-              const fields: StructFieldProps[] = structDesc.fieldDetails.flatMap(fd => {
+              const fieldDetails2 = structDesc.fieldDetails.filter(fd => {
                 if (typeExprsEqual(adlex.texprDisplay().value, structDesc.texpr.value) && fd.name === "model") {
-                  return [];
+                  return false;
                 }
-                return [makeRenderStructField(fd, VEDITOR_FACTORY, state, onUpdate)];
+                return true;
               });
-              return VEDITOR_FACTORY.renderStructEditor({ fields, disabled });
+              return acceptStruct(env, { ...structDesc, fieldDetails: fieldDetails2 });
             }
           }),
           makeOverride("validate", {
@@ -76,9 +67,9 @@ storiesOf("Overrides & Mappers", module)
           makeOverride("render", {
             acceptField(env, fieldDesc) {
               if (typeExprsEqual(fieldDesc.texpr.value, adlrt.texprString().value)) {
-                return renderAcceptor.acceptField({ ...env, factory: VEDITOR_FACTORY2 }, fieldDesc);
+                return acceptField2(env, fieldDesc);
               }
-              return renderAcceptor.acceptField(env, fieldDesc);
+              return styledRenderAcceptor.acceptField(env, fieldDesc);
             },
           }),
         ],
@@ -89,19 +80,16 @@ storiesOf("Overrides & Mappers", module)
   })
   ;
 
-const VEDITOR_FACTORY2: Factory = {
-  ...VEDITOR_FACTORY,
-  renderFieldEditor: renderFieldEditor2,
-};
 
-function renderFieldEditor2(props: FieldEditorProps): Rendered {
-  const { fieldfns, disabled, state, onUpdate } = props;
-  const errlabel = fieldfns.validate(state);
+function acceptField2(env: RenderProps<string, string>, fieldDesc: FieldDescriptor): Rendered {
+  const { state, disabled, onUpdate } = env;
+  const errlabel = fieldDesc.fieldfns.validate(state);
   const beside = (
     <Row>
-      <StyledInput placeholder='iam a placeholder' value={state} onChange={(s) => onUpdate(s.currentTarget.value)} disabled={disabled} />
+      <StyledInput placeholder='custom placeholder' value={state} onChange={(s) => onUpdate(s.currentTarget.value)} disabled={disabled} />
       {errlabel && <StyledError>{errlabel}</StyledError>}
     </Row>
   );
   return { beside };
 }
+

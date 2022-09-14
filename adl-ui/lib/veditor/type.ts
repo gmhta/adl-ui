@@ -19,8 +19,8 @@ export interface IVEditor<T, S, E> {
   valueFromState(state: S): T;
   // Returns a copy of the state, updated to reflect the given event
   update(state: S, event: E): S;
-  // Render the editor's current state as a UI.
-  render(state: S, disabled: boolean, onUpdate: UpdateFn<E>): Rendered;
+  // // Render the editor's current state as a UI.
+  // render(state: S, disabled: boolean, onUpdate: UpdateFn<E>): Rendered;
 }
 
 export interface Rendered {
@@ -54,10 +54,8 @@ export interface Factory {
   renderUnimplementedEditor(props: UnimplementedEditorProps): Rendered;
 }
 
-
-
 export type RenderProps<S, E> = {
-  factory: Factory;
+  // factory: Factory;
   state: S;
   disabled: boolean;
   onUpdate: UpdateFn<E>;
@@ -129,9 +127,11 @@ export type UnionBranch = {
 
 export interface UnionEditorProps {
   selectState: SelectState,
-  veditor: UnionBranchProps<unknown, unknown, unknown> | null;
+  branchProps: UnionBranchProps<unknown, unknown, unknown> | null;
   disabled: boolean;
 }
+
+export type UnionEditorState = Pick<UnionEditorProps, "selectState" | "branchProps">
 
 export interface UnionBranchProps<T, S, E> {
   visitor: VisitorU;

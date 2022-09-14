@@ -6,11 +6,9 @@ import {
 import {
   Acceptors,
   AcceptorsIsO,
-  AcceptorsOsIs, AcceptUnimplementedProps, AdlTypeMapper,
-  DescriptorUnion, Factory, FieldDescriptor,
-  FieldDetails, IVEditor, Override, Rendered, RenderProps,
-  StructDescriptor, StructFieldProps, UnionBranchProps,
-  UnionDescriptor, UpdateFn, Visitor,
+  AcceptorsOsIs, AcceptorsU, AcceptUnimplementedProps, AdlTypeMapper,
+  DescriptorUnion, FieldDescriptor, IVEditor, Override, StructDescriptor, UnionBranch, UnionBranchProps,
+  UnionDescriptor, UnionEditorState, UpdateFn, Visitor,
   VisitorU
 } from "./type";
 
@@ -22,7 +20,6 @@ export type TandErrors<T> = {
 export function createVEditor<T>(
   typeExpr: adlrt.ATypeExpr<T>,
   declResolver: adlrt.DeclResolver,
-  factory: Factory,
   customizers?: {
     overrides: Override[],
     mappers: AdlTypeMapper<any, any>[],
@@ -33,17 +30,18 @@ export function createVEditor<T>(
     declResolver,
     customizers ? customizers : { overrides: [], mappers: [] },
   );
-  return makeVEditor(visitor, factory);
+  return makeVEditor(visitor);
 }
 
-export function makeVEditor<T>(visitor: VisitorU, factory: Factory): IVEditor<T, unknown, unknown> {
+export function makeVEditor<T>(visitor: VisitorU): IVEditor<T, unknown, unknown> & VisitorU {
   return {
     getInitialState: () => getInitialState(visitor),
     stateFromValue: (value: T): unknown => stateFromValue(visitor, value),
     validate: (state: unknown): string[] => validate(visitor, state),
     valueFromState: (state: unknown): T => valueFromState(visitor, state),
     update: (state: unknown, event: unknown): unknown => update(visitor, state, event),
-    render: (state: unknown, disabled: boolean, onUpdate: UpdateFn<unknown>): Rendered => render(visitor, factory, state, disabled, onUpdate),
+    visit: (name: string, env: unknown, acceptor: AcceptorsU): unknown => visitor.visit(name, env, acceptor),
+    // render: (state: unknown, disabled: boolean, onUpdate: UpdateFn<unknown>): Rendered => render(visitor, factory, state, disabled, onUpdate),
   };
 }
 
@@ -297,14 +295,7 @@ export const updateAcceptor: Acceptors<
       if (!fd) {
         throw new Error("could find a named field " + event.field);
       }
-      const newfs = fd.visitor.visit(
-        "update",
-        {
-          state: state.fieldStates[event.field],
-          event: event.fieldEvent,
-        },
-        updateAcceptor
-      );
+      const newfs = fd.visitor.visit("update", { state: state.fieldStates[event.field], event: event.fieldEvent }, updateAcceptor);
       newFieldStates[event.field] = newfs;
       const newState = {
         fieldStates: newFieldStates,
@@ -365,100 +356,88 @@ export const updateAcceptor: Acceptors<
   }
 };
 
-export const renderAcceptor: Acceptors<
-  RenderProps<string, string>, Rendered,
-  RenderProps<StructState, StructEvent>, Rendered,
-  RenderProps<UnionState, UnionEvent>, Rendered,
-  RenderProps<null, null>, Rendered,
-  RenderProps<unknown, unknown>, Rendered,
-  RenderProps<unknown, unknown>, Rendered
-> = {
-  acceptField: function (env: RenderProps<string, string>, fieldDesc: FieldDescriptor): Rendered {
-    const { factory, state, disabled, onUpdate } = env;
-    return factory.renderFieldEditor({ fieldfns: fieldDesc.fieldfns, disabled, state, onUpdate });
-  },
-  acceptStruct: function (env: RenderProps<StructState, StructEvent>, structDesc: StructDescriptor): Rendered {
-    const { factory, state, disabled, onUpdate } = env;
-    const fields: StructFieldProps[] = structDesc.fieldDetails.map(fd => {
-      // const props: RenderProps<unknown, unknown> = {
-      //   factory,
-      //   state: state.fieldStates[fd.name],
-      //   disabled: env.disabled,
-      //   onUpdate: event => {
-      //     onUpdate({ kind: "field", field: fd.name, fieldEvent: event });
-      //   },
-      // };
-      // fd.visitor.visit("render", props, renderAcceptor);
-      return makeRenderStructField(fd, factory, state, onUpdate);
-    });
-    return factory.renderStructEditor({ fields, disabled });
-  },
-  acceptUnion: function (env: RenderProps<UnionState, UnionEvent>, unionDesc: UnionDescriptor): Rendered {
-    const { factory, state, disabled, onUpdate } = env;
-    let current: number | null = null;
-    if (state.currentField) {
-      current = unionDesc.branchDetails[state.currentField] ? unionDesc.branchDetails[state.currentField].index : null;
-    }
+// export const renderAcceptor: Acceptors<
+//   RenderProps<string, string>, Rendered,
+//   RenderProps<StructState, StructEvent>, Rendered,
+//   RenderProps<UnionState, UnionEvent>, Rendered,
+//   RenderProps<null, null>, Rendered,
+//   RenderProps<unknown, unknown>, Rendered,
+//   RenderProps<unknown, unknown>, Rendered
+// > = {
+//   acceptField: function (env: RenderProps<string, string>, fieldDesc: FieldDescriptor): Rendered {
+//     const { factory, state, disabled, onUpdate } = env;
+//     return factory.renderFieldEditor({ fieldfns: fieldDesc.fieldfns, disabled, state, onUpdate });
+//   },
+//   acceptStruct: function (env: RenderProps<StructState, StructEvent>, structDesc: StructDescriptor): Rendered {
+//     const { factory, state, disabled, onUpdate } = env;
+//     const fields: StructFieldProps[] = structDesc.fieldDetails.map(fd => {
+//       return makeRenderStructField(fd, factory, state, onUpdate);
+//     });
+//     return factory.renderStructEditor({ fields, disabled });
+//   },
+//   acceptUnion: function (env: RenderProps<UnionState, UnionEvent>, unionDesc: UnionDescriptor): Rendered {
+//     const { factory, state, disabled, onUpdate } = env;
+//     const { currentField, selectActive, fieldStates } = state;
+//     const { branchDetails } = unionDesc;
+//     const { selectState, branchProps } = makeUnionEditorProps(currentField, selectActive, fieldStates, branchDetails, onUpdate);
+//     return factory.renderUnionEditor({ selectState, disabled, branchProps });
+//   },
+//   acceptVoid: function (env: RenderProps<null, null>): Rendered {
+//     const { factory } = env;
+//     return factory.renderVoidEditor();
+//   },
+//   acceptVector: function (env: RenderProps<unknown, unknown>, desc: StructDescriptor | UnionDescriptor): Rendered {
+//     const { factory } = env;
+//     throw new Error("Function not implemented.");
+//   },
+//   acceptUnimplemented: function (env: RenderProps<unknown, unknown>, props: AcceptUnimplementedProps): Rendered {
+//     const { factory } = env;
+//     return factory.renderUnimplementedEditor({ typeExpr: props.typeExpr });
+//   }
+// };
 
-    const name = (i: number) => {
-      const k = Object.keys(unionDesc.branchDetails).find(k => unionDesc.branchDetails[k].index === i);
-      if (!k) {
-        throw Error("no branch with this index" + i);
-      }
-      return unionDesc.branchDetails[k].name;
-    };
 
-    const selectState: SelectState = {
-      current,
-      active: state.selectActive,
-      choices: Object.keys(unionDesc.branchDetails).map(k => unionDesc.branchDetails[k].label),
-      onClick: () => onUpdate({ kind: "toggleActive" }),
-      onChoice: (i: number | null) => {
-        onUpdate({ kind: "toggleActive" });
-        onUpdate({ kind: "switch", field: i === null ? null : name(i) });
-      },
-    };
-
-    let veditor: UnionBranchProps<unknown, unknown, unknown> | null = null;
-    if (state.currentField) {
-      const visitor = unionDesc.branchDetails[state.currentField].visitor();
-      veditor = {
-        visitor,
-        // veditor: makeVEditor(visitor, factory),
-        state: state.fieldStates[state.currentField],
-        onUpdate: event => onUpdate({ kind: "update", event })
-      };
-    }
-
-    return factory.renderUnionEditor({ selectState, disabled, veditor });
-  },
-  acceptVoid: function (env: RenderProps<null, null>): Rendered {
-    const { factory } = env;
-    return factory.renderVoidEditor();
-  },
-  acceptVector: function (env: RenderProps<unknown, unknown>, desc: StructDescriptor | UnionDescriptor): Rendered {
-    const { factory } = env;
-    throw new Error("Function not implemented.");
-  },
-  acceptUnimplemented: function (env: RenderProps<unknown, unknown>, props: AcceptUnimplementedProps): Rendered {
-    const { factory } = env;
-    return factory.renderUnimplementedEditor({ typeExpr: props.typeExpr });
+export function makeUnionEditorProps(
+  currentField: string | null,
+  selectActive: boolean,
+  fieldStates: Record<string, unknown>,
+  branchDetails: Record<string, UnionBranch>,
+  onUpdate: UpdateFn<UnionEvent>,
+): UnionEditorState {
+  let current: number | null = null;
+  if (currentField) {
+    current = branchDetails[currentField] ? branchDetails[currentField].index : null;
   }
-};
 
-
-export function makeRenderStructField(fd: FieldDetails, factory: Factory, state: StructState, onUpdate: UpdateFn<StructFieldEvent>): StructFieldProps {
-  const veditor = makeVEditor(fd.visitor, factory);
-  return {
-    name: fd.name,
-    label: fd.label,
-    visitor: fd.visitor,
-    veditor,
-    state: state.fieldStates[fd.name],
-    onUpdate: event => {
-      onUpdate({ kind: "field", field: fd.name, fieldEvent: event });
+  const name = (i: number) => {
+    const k = Object.keys(branchDetails).find(k => branchDetails[k].index === i);
+    if (!k) {
+      throw Error("no branch with this index" + i);
     }
+    return branchDetails[k].name;
   };
+
+  const selectState: SelectState = {
+    current,
+    active: selectActive,
+    choices: Object.keys(branchDetails).map(k => branchDetails[k].label),
+    onClick: () => onUpdate({ kind: "toggleActive" }),
+    onChoice: (i: number | null) => {
+      onUpdate({ kind: "toggleActive" });
+      onUpdate({ kind: "switch", field: i === null ? null : name(i) });
+    },
+  };
+
+  let branchProps: UnionBranchProps<unknown, unknown, unknown> | null = null;
+  if (currentField) {
+    const visitor = branchDetails[currentField].visitor();
+    branchProps = {
+      visitor,
+      state: fieldStates[currentField],
+      onUpdate: event => onUpdate({ kind: "update", event })
+    };
+  }
+  return { selectState, branchProps };
 }
 
 export function getInitialState<S>(veditor0: Visitor<void, unknown>): S {
@@ -479,8 +458,4 @@ export function stateFromValue<T, S>(veditor0: VisitorU, value0: T): S {
 
 export function valueFromState<T, S>(veditor: VisitorU, vstate: S): T {
   return veditor.visit("valueFromState", vstate, valueFromStateAcceptor) as T;
-}
-
-export function render<S, E>(veditor: VisitorU, factory: Factory, state0: S, disabled0: boolean, onUpdate0: UpdateFn<E>): Rendered {
-  return veditor.visit("render", { state: state0, disabled: disabled0, onUpdate: onUpdate0, factory }, renderAcceptor) as Rendered;
 }
