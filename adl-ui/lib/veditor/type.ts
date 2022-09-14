@@ -1,6 +1,5 @@
 import { FieldFns } from "../fields/type";
 import * as adlast from "../../adl-gen/sys/adlast";
-import { SelectState } from "../select";
 import * as adlrt from "../../adl-gen/runtime/adl";
 import { Maybe } from "../../adl-gen/sys/types";
 import { JsonBinding } from '../../adl-gen/runtime/json';
@@ -126,12 +125,11 @@ export type UnionBranch = {
 };
 
 export interface UnionEditorProps {
-  selectState: SelectState,
   branchProps: UnionBranchProps<unknown, unknown, unknown> | null;
   disabled: boolean;
 }
 
-export type UnionEditorState = Pick<UnionEditorProps, "selectState" | "branchProps">
+export type UnionEditorState = Pick<UnionEditorProps, "branchProps">
 
 export interface UnionBranchProps<T, S, E> {
   visitor: VisitorU;

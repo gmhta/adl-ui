@@ -1,5 +1,4 @@
 import * as adlrt from "../../adl-gen/runtime/adl";
-import { SelectState } from "../select";
 import {
   createVisitor
 } from "./adl-visitors";
@@ -7,8 +6,8 @@ import {
   Acceptors,
   AcceptorsIsO,
   AcceptorsOsIs, AcceptorsU, AcceptUnimplementedProps, AdlTypeMapper,
-  DescriptorUnion, FieldDescriptor, IVEditor, Override, StructDescriptor, UnionBranch, UnionBranchProps,
-  UnionDescriptor, UnionEditorState, UpdateFn, Visitor,
+  DescriptorUnion, FieldDescriptor, IVEditor, Override,
+  StructDescriptor, UnionDescriptor, Visitor,
   VisitorU
 } from "./type";
 
@@ -62,13 +61,9 @@ export type StructEvent = StructFieldEvent;
 
 export interface UnionState {
   currentField: string | null;
-  selectActive: boolean,
   fieldStates: { [key: string]: unknown; };
 }
 
-interface UnionToggleActive {
-  kind: "toggleActive",
-} // Show the dropdown
 interface UnionSetField {
   kind: "switch";
   field: string | null;
@@ -77,7 +72,7 @@ interface UnionUpdate {
   kind: "update";
   event: unknown;
 } // Update the value
-export type UnionEvent = UnionToggleActive | UnionSetField | UnionUpdate;
+export type UnionEvent = UnionSetField | UnionUpdate;
 
 export interface SomeUnion {
   kind: string;
@@ -121,7 +116,6 @@ export const stateFromValueAcceptor: Acceptors<
     }
     return {
       currentField: kind,
-      selectActive: false,
       fieldStates: { [kind]: unionDesc.branchDetails[kind].visitor().visit("stateFromValue", value, stateFromValueAcceptor) }
     };
   },
@@ -171,7 +165,10 @@ export const getInitialStateAcceptor: Acceptors<
     return initialState;
   },
   acceptUnion: function (env: void, unionDesc: UnionDescriptor): UnionState {
-    const initialState = { currentField: null, selectActive: false, fieldStates: {} };
+    const initialState: UnionState = {
+      currentField: null,
+      fieldStates: {}
+    };
     return initialState;
   },
   acceptVoid: function (env: void): unknown {
@@ -307,12 +304,7 @@ export const updateAcceptor: Acceptors<
   },
   acceptUnion: function (env: SE<UnionState, UnionEvent>, unionDesc: UnionDescriptor): UnionState {
     const { state, event } = env;
-    if (event.kind === "toggleActive") {
-      return {
-        ...state,
-        selectActive: !state.selectActive,
-      };
-    } else if (event.kind === "switch") {
+    if (event.kind === "switch") {
       const field = event.field;
       const newFieldStates = { ...state.fieldStates };
       if (field && !newFieldStates[field]) {
@@ -320,7 +312,6 @@ export const updateAcceptor: Acceptors<
       }
       return {
         currentField: event.field,
-        selectActive: state.selectActive,
         fieldStates: newFieldStates
       };
     } else if (event.kind === "update") {
@@ -397,48 +388,24 @@ export const updateAcceptor: Acceptors<
 // };
 
 
-export function makeUnionEditorProps(
-  currentField: string | null,
-  selectActive: boolean,
-  fieldStates: Record<string, unknown>,
-  branchDetails: Record<string, UnionBranch>,
-  onUpdate: UpdateFn<UnionEvent>,
-): UnionEditorState {
-  let current: number | null = null;
-  if (currentField) {
-    current = branchDetails[currentField] ? branchDetails[currentField].index : null;
-  }
-
-  const name = (i: number) => {
-    const k = Object.keys(branchDetails).find(k => branchDetails[k].index === i);
-    if (!k) {
-      throw Error("no branch with this index" + i);
-    }
-    return branchDetails[k].name;
-  };
-
-  const selectState: SelectState = {
-    current,
-    active: selectActive,
-    choices: Object.keys(branchDetails).map(k => branchDetails[k].label),
-    onClick: () => onUpdate({ kind: "toggleActive" }),
-    onChoice: (i: number | null) => {
-      onUpdate({ kind: "toggleActive" });
-      onUpdate({ kind: "switch", field: i === null ? null : name(i) });
-    },
-  };
-
-  let branchProps: UnionBranchProps<unknown, unknown, unknown> | null = null;
-  if (currentField) {
-    const visitor = branchDetails[currentField].visitor();
-    branchProps = {
-      visitor,
-      state: fieldStates[currentField],
-      onUpdate: event => onUpdate({ kind: "update", event })
-    };
-  }
-  return { selectState, branchProps };
-}
+// export function makeUnionEditorProps(
+//   currentField: string | null,
+//   // selectActive: boolean,
+//   fieldStates: Record<string, unknown>,
+//   branchDetails: Record<string, UnionBranch>,
+//   onUpdate: UpdateFn<UnionEvent>,
+// ): UnionEditorState {
+//   let branchProps: UnionBranchProps<unknown, unknown, unknown> | null = null;
+//   if (currentField) {
+//     const visitor = branchDetails[currentField].visitor();
+//     branchProps = {
+//       visitor,
+//       state: fieldStates[currentField],
+//       onUpdate: event => onUpdate({ kind: "update", event })
+//     };
+//   }
+//   return { branchProps };
+// }
 
 export function getInitialState<S>(veditor0: Visitor<void, unknown>): S {
   return veditor0.visit("getInitialState", undefined, getInitialStateAcceptor) as S;

@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { typeExprToStringUnscoped } from '@timbod7/adl-rt/runtime/utils';
 import {
   Acceptors,
-  AcceptUnimplementedProps, FieldDescriptor, getInitialState, makeUnionEditorProps,
+  AcceptUnimplementedProps, FieldDescriptor, getInitialState,
   Rendered, RenderProps, stateFromValue,
   StructDescriptor, StructEvent, StructState, UnionDescriptor, UnionEvent,
   UnionState,
@@ -64,10 +64,10 @@ export function acceptStruct(env: RenderProps<StructState, StructEvent>, structD
   const { state, disabled, onUpdate } = env;
   const rows = structDesc.fieldDetails.map(fd => {
     const label = disabled ? fd.label : <b>{fd.label}</b>;
-    const fd_state = state.fieldStates[fd.name]
+    const fd_state = state.fieldStates[fd.name];
     const fd_onUpdate = (event: unknown) => {
       onUpdate({ kind: "field", field: fd.name, fieldEvent: event });
-    }
+    };
     const rendered = fd.visitor.visit("render", { state: fd_state, disabled: disabled, onUpdate: fd_onUpdate }, styledRenderAcceptor) as Rendered;
     return (
       <>
@@ -90,17 +90,25 @@ export function acceptStruct(env: RenderProps<StructState, StructEvent>, structD
 }
 
 export function acceptUnion(env: RenderProps<UnionState, UnionEvent>, unionDesc: UnionDescriptor): Rendered {
-  const { disabled } = env;
-  const { currentField, selectActive, fieldStates } = env.state;
+  const { currentField, fieldStates } = env.state;
   const { branchDetails } = unionDesc;
-  const { selectState, branchProps } = makeUnionEditorProps(currentField, selectActive, fieldStates, branchDetails, env.onUpdate);
 
-  const beside = <Select state={selectState} />;
-  if (!branchProps) {
+  const choices = Object.keys(branchDetails).map(k => ({ name: k, label: branchDetails[k].label }));
+  const onChoice = (name: string | null) => {
+    env.onUpdate({ kind: "switch", field: name === null ? null : name });
+  };
+
+  const beside = <Select current={currentField} choices={choices} onChoice={onChoice} />;
+  if (!currentField) {
     return { beside };
   }
-  const { state, onUpdate, visitor } = branchProps;
-  const r = visitor.visit("render", { state, disabled: disabled, onUpdate }, styledRenderAcceptor) as Rendered;
+  const branchEnv = {
+    state: fieldStates[currentField],
+    disabled: env.disabled,
+    onUpdate: (event: unknown) => env.onUpdate({ kind: "update", event }),
+  };
+  const visitor = branchDetails[currentField].visitor();
+  const r = visitor.visit("render", branchEnv, styledRenderAcceptor) as Rendered;
   const below = <div>{r.beside}{r.below}</div>;
   return {
     beside,

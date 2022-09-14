@@ -1,30 +1,30 @@
 import React from 'react';
 
 import styled from 'styled-components';
-import { useSelectState, SelectState } from "@timbod7/adl-ui";
+
+export type NameLabel = { name: string, label: string; };
 
 interface SelectProps {
-  state: SelectState,
+  current: string | null,
+  // active: boolean,
+  choices: NameLabel[],
+  onChoice(branchName: string | null): void;
 }
 
 export function Select(props: SelectProps) {
-  const state = props.state;
-
-  const current = state.current == null ? "???" : state.choices[state.current];
+  const current = props.current == null ? "???" : props.current;
 
   const NO_CHOICE = "???";
-  const labels = [
-    NO_CHOICE,
-    ...state.choices
+  const labels: NameLabel[] = [
+    { name: NO_CHOICE, label: NO_CHOICE },
+    ...props.choices
   ];
-
-  console.log("labels", labels);
 
   function onChange(ev: React.ChangeEvent<HTMLSelectElement>) {
     if (ev.target.value === NO_CHOICE) {
-      props.state.onChoice(null);
+      props.onChoice(null);
     } else {
-      props.state.onChoice(state.choices.findIndex(c => c === ev.target.value));
+      props.onChoice(ev.target.value);
     }
   }
 
@@ -32,7 +32,7 @@ export function Select(props: SelectProps) {
 
   return (
     <Select value={current} onChange={onChange}>
-      {labels.map(l => <Option key={l}>{l}</Option>)}
+      {labels.map(l => <Option value={l.name} key={l.name}>{l.label}</Option>)}
     </Select>
   );
 }
