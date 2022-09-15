@@ -11,10 +11,6 @@ export {
     NUMBER_FIELD,
     STRING_FIELD
 } from "./lib/fields/primitive";
-export {
-    SelectState,
-    useSelectState
-} from "./lib/select";
 export * from './lib/veditor/type';
 export * from './lib/veditor/adl-visitor-veditor';
 export { createVisitor } from './lib/veditor/adl-visitors';
