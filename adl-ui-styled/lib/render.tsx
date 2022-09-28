@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-import { typeExprToStringUnscoped } from '@timbod7/adl-rt/runtime/utils';
+// import { typeExprToStringUnscoped } from '@timbod7/adl-rt/runtime/utils';
 import {
   Acceptors,
   AcceptUnimplementedProps, FieldDescriptor, getInitialState,
@@ -126,7 +126,7 @@ export function acceptVector(env: RenderProps<unknown, unknown>, desc: StructDes
 
 export function acceptUnimplemented(env: RenderProps<unknown, unknown>, props: AcceptUnimplementedProps): Rendered {
   return {
-    beside: <div>unimplemented veditor for {typeExprToStringUnscoped(props.typeExpr)}</div>,
+    beside: <div>unimplemented veditor</div>,
     below: undefined,
   };
 }
